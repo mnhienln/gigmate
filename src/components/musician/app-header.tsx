@@ -5,11 +5,12 @@ import { Stripes } from "@/components/ui/stripes";
 export function AppHeader({
   city,
   weekOf,
-  requests,
+  pending,
 }: {
   city: string;
   weekOf: string;
-  requests: number;
+  /** Applications still waiting for a venue to answer. */
+  pending: number;
 }) {
   return (
     <header className="px-5 pt-5">
@@ -45,9 +46,7 @@ export function AppHeader({
       <p className="mt-3 flex justify-between font-mono text-[12px] uppercase tracking-wide text-ink-muted">
         <span>{city}</span>
         <span>Week of {weekOf}</span>
-        <span>
-          {requests} request{requests === 1 ? "" : "s"}
-        </span>
+        <span>{pending} pending</span>
       </p>
     </header>
   );

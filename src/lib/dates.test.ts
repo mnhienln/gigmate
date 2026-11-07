@@ -1,7 +1,7 @@
 // Run with: npm run test:unit
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { addDays, dayOf, formatTimeRange, localToUtcIso, weekStartOf } from "./dates.ts";
+import { addDays, dayOf, formatTimeRange, localToUtcIso, parseWhen, timeAgo, weekStartOf, whenRange } from "./dates.ts";
 
 test("winter evening (EST, UTC-5): 8 PM Nov 20 is 01:00 UTC the next day", () => {
   assert.equal(localToUtcIso("2026-11-20", "20:00"), "2026-11-21T01:00:00.000Z");
@@ -38,4 +38,49 @@ test("addDays crosses month and year ends", () => {
 
 test("time range", () => {
   assert.equal(formatTimeRange(localToUtcIso("2026-11-20", "20:00"), 120), "8:00 PM to 10:00 PM");
+});
+
+test("whenRange today ends at the next Dayton midnight", () => {
+  const now = new Date("2026-11-07T22:00:00Z"); // Sat 5 PM Dayton
+  assert.equal(whenRange("today", now).to, "2026-11-08T05:00:00.000Z");
+  assert.equal(whenRange("today", now).from, now.toISOString());
+});
+
+test("whenRange week is seven Dayton days ahead", () => {
+  const now = new Date("2026-11-07T22:00:00Z");
+  assert.equal(whenRange("week", now).to, localToUtcIso("2026-11-14", "00:00"));
+});
+
+test("weekend from midweek starts Friday 5 PM and ends Monday midnight", () => {
+  const wed = new Date("2026-11-04T17:00:00Z"); // Wed noon Dayton
+  const r = whenRange("weekend", wed);
+  assert.equal(r.from, "2026-11-06T22:00:00.000Z"); // Fri 5 PM EST
+  assert.equal(r.to, "2026-11-09T05:00:00.000Z"); // Mon 12 AM EST
+});
+
+test("weekend on Friday morning still starts at 5 PM, on Friday night starts now", () => {
+  assert.equal(whenRange("weekend", new Date("2026-11-06T15:00:00Z")).from, "2026-11-06T22:00:00.000Z");
+  const night = new Date("2026-11-07T01:00:00Z"); // Fri 8 PM Dayton
+  assert.equal(whenRange("weekend", night).from, night.toISOString());
+});
+
+test("weekend on Saturday and Sunday starts now and ends Monday midnight", () => {
+  const sat = new Date("2026-11-07T17:00:00Z");
+  const sun = new Date("2026-11-08T17:00:00Z");
+  assert.equal(whenRange("weekend", sat).to, "2026-11-09T05:00:00.000Z");
+  assert.equal(whenRange("weekend", sun).to, "2026-11-09T05:00:00.000Z");
+});
+
+test("any date has no end, and unknown values fall back to any", () => {
+  assert.equal(whenRange("any").to, undefined);
+  assert.equal(parseWhen("nonsense"), "any");
+  assert.equal(parseWhen("today"), "today");
+});
+
+test("timeAgo", () => {
+  const now = new Date("2026-11-07T12:00:00Z");
+  assert.equal(timeAgo("2026-11-07T11:59:40Z", now), "now");
+  assert.equal(timeAgo("2026-11-07T11:30:00Z", now), "30m");
+  assert.equal(timeAgo("2026-11-07T10:00:00Z", now), "2h");
+  assert.equal(timeAgo("2026-11-04T12:00:00Z", now), "3d");
 });

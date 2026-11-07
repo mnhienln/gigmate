@@ -46,3 +46,19 @@ The checkboxes belong to a GET form through the `form` attribute, so "compare tw
 
 ## 12. Venue look is a sibling of the musician look
 Same fonts, brand colors and stripes, but white paper, denser cards and burnt orange as the one primary action color. The two apps feel like one brand. All venue colors live in one CSS block, so changing the look is a single edit.
+
+## 13. Discover filters live in the URL
+Filters are a plain GET form, so a filtered view is a link: it can be bookmarked, shared, and the back button works, with no client JavaScript. The page accepts only values from our own lists and ignores anything else, so a hand-edited URL cannot break the query.
+Tradeoff: results update when you tap "Show gigs", not as you type.
+
+## 14. One ticket component, many uses
+The poster-style ticket takes an `action` slot instead of knowing about applying. The feed (one featured gig) and Discover (every gig) reuse it, and later the boost badge can reuse it too.
+Tradeoff: a slightly more abstract component than a one-off card.
+
+## 15. Application state decides what the Apply button shows
+The button reads this musician's application for each gig (none, pending, accepted, declined, withdrawn). A gig cannot be applied to twice from the UI, and a stale tab that tries anyway is stopped by the database's unique rule, which we turn into a friendly message.
+Tradeoff: one extra query per page to look up the musician's applications.
+
+## 16. The database says no to late and wrong-state changes
+A tiny migration (0003) makes withdrawing possible only while an application is pending, and applying possible only to future open gigs. The app also checks, but the database is the last line of defense, since anyone can call the API directly.
+Tradeoff: another SQL file to apply. It is tested in the local security suite.

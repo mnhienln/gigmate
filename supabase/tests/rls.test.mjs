@@ -13,7 +13,10 @@ const db = new PGlite();
 let passed = 0;
 const failures = [];
 
-const sql = readFileSync(process.env.SQL_PATH ?? new URL("../migrations/0001_init.sql", import.meta.url), "utf8");
+const sql =
+  readFileSync(process.env.SQL_PATH ?? new URL("../migrations/0001_init.sql", import.meta.url), "utf8") +
+  "\n" +
+  readFileSync(new URL("../migrations/0003_musician_rules.sql", import.meta.url), "utf8");
 
 // --- Supabase stand-ins ------------------------------------------------------
 await db.exec(`
@@ -259,6 +262,33 @@ await test("posting as yourself works, as someone else does not", async () => {
 await test("subscriptions and boosts cannot be written by users", async () => {
   await fails(as(mara, "insert into subscriptions (musician_id, plan, status) values ($1, 'weekly', 'active')", [mara]), /row-level security/, "fake subscription");
   await fails(as(front, "insert into boosts (slot_id, venue_id, ends_at) values ($1, $2, now())", [slot, front]), /row-level security/, "fake boost");
+});
+
+console.log("\nPhase 3 rules: withdrawing and late applications");
+const dana = await newUser("dana@x.test", "musician", "Dana Fox");
+const eli = await newUser("eli@x.test", "musician", "Eli Reed");
+let slot2;
+await test("setup: a second future slot", async () => {
+  slot2 = (await as(front,
+    "insert into gig_slots (venue_id, starts_at, set_length_min, pay_cents) values ($1, now() + interval '5 days', 90, 12000) returning id", [front])).rows[0].id;
+  assert.ok(slot2);
+});
+await test("a musician can withdraw a PENDING application", async () => {
+  await as(dana, "insert into applications (slot_id, musician_id) values ($1, $2)", [slot2, dana]);
+  const r = await as(dana, "update applications set status = 'withdrawn' where slot_id = $1 and musician_id = $2 returning id", [slot2, dana]);
+  assert.equal(r.rows.length, 1);
+});
+await test("a musician cannot withdraw an ACCEPTED application", async () => {
+  const appEli = (await as(eli, "insert into applications (slot_id, musician_id) values ($1, $2) returning id", [slot2, eli])).rows[0].id;
+  await as(front, "select accept_application($1)", [appEli]);
+  const r = await as(eli, "update applications set status = 'withdrawn' where id = $1 returning id", [appEli]);
+  assert.equal(r.rows.length, 0, "accepted application must not be withdrawable");
+  assert.equal((await db.query("select status from applications where id = $1", [appEli])).rows[0].status, "accepted");
+});
+await test("a musician cannot apply to a slot that already started", async () => {
+  const pastSlot = (await db.query(
+    "insert into gig_slots (venue_id, starts_at, set_length_min, pay_cents) values ($1, now() - interval '2 hours', 60, 5000) returning id", [front])).rows[0].id;
+  await fails(as(dana, "insert into applications (slot_id, musician_id) values ($1, $2)", [pastSlot, dana]), /row-level security/, "late application");
 });
 
 console.log(`\n${passed} passed, ${failures.length} failed`);

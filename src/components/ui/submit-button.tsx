@@ -11,6 +11,7 @@ export function SubmitButton({
   name,
   value,
   label,
+  fullWidth = true,
 }: {
   children: React.ReactNode;
   pendingText?: string;
@@ -19,6 +20,8 @@ export function SubmitButton({
   value?: string;
   /** Spoken name for screen readers when the visible text is ambiguous, e.g. "Accept Mara Quinn". */
   label?: string;
+  /** False for an inline pill (like Apply on a ticket). */
+  fullWidth?: boolean;
 }) {
   const { pending } = useFormStatus();
   const style =
@@ -32,7 +35,7 @@ export function SubmitButton({
       value={value}
       aria-label={label}
       disabled={pending}
-      className={`flex min-h-14 w-full items-center justify-center rounded-full px-8 font-display text-xl uppercase tracking-wide active:scale-[0.98] disabled:opacity-60 ${style}`}
+      className={`flex min-h-14 ${fullWidth ? "w-full" : "w-auto"} items-center justify-center rounded-full px-8 font-display text-xl uppercase tracking-wide active:scale-[0.98] disabled:opacity-60 ${style}`}
     >
       {pending ? pendingText : children}
     </button>
