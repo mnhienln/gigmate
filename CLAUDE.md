@@ -1,0 +1,89 @@
+# GigMate
+
+Mobile-first web app (installable PWA) connecting local musicians with bars, breweries and small venues. Launch city: Dayton, Ohio. Built by a student team at Startup Weekend as a working demo.
+
+@AGENTS.md
+
+## Read this first
+- This is Next.js 16 with Cache Components. Read the relevant guide in `node_modules/next/dist/docs/` before writing Next code. Key differences already hit: `middleware.ts` is now `proxy.ts`; request-time values (dates, cookies, DB reads) must sit inside `<Suspense>` after `await connection()`; icon components cannot be passed from server to client components (pass a string name).
+- The user is a student learning. For every architecture choice, explain it in 2 to 3 sentences and name the tradeoff (in chat, and in `docs/decisions.md` for lasting ones).
+- Do not use em dashes in any text, code comment or UI copy.
+- Work in phases. After each phase: run the app, fix errors, summarize, commit, and wait for the go-ahead.
+- Keep secrets in `.env.local` and the cloud environment settings. Never commit keys. Never ask the user to paste keys into chat.
+
+## Business model (changed from the first brief, current as of Nov 2026)
+- Venues use GigMate free. They pay only for (1) boosting a slot post and (2) a last-minute cancellation fee.
+- Musicians pay a subscription: $5 weekly, $16 monthly, yearly price TBD. Free trial TBD.
+- GigMate takes NO cut of gig pay. Venues and musicians settle pay directly for now (in-app payment is a possible later phase).
+- Therefore: no Stripe Connect, no held payouts, no "Gig happened releases payout". Do not build them unless asked.
+- Stripe (TEST MODE only) is used for exactly three things: musician subscription (Checkout, subscription mode), venue boost (Checkout, one-time), venue cancellation fee (Checkout, one-time).
+- OPEN decisions, ask before building the related screen: yearly price and trial; what a non-subscriber can do (proposal: browse free, subscribe to apply); cancellation window, fee amount and who receives it; boost price and duration (guess: $10 for 24h).
+- Pitch framing: reliable opportunities and connections, backed by reviews and reliability signals (for example "cancelled last minute: 0 times" on venue profiles).
+
+## Platform and stack
+- One codebase, one database, one login. Role chosen at signup (musician or venue) decides the shell. Role is set once and immutable.
+- Next.js 16 (App Router) + TypeScript, Tailwind CSS v4, Supabase (auth, Postgres, storage), Stripe test mode, deploy on Vercel.
+- Design at 375px first, then tablet and desktop. Check every screen at 375px before calling it done.
+- Fonts are self-hosted via `@fontsource/*` (the cloud environment cannot reach Google Fonts).
+
+## Two apps under one brand
+Route groups with real URL prefixes so paths never collide and the role guard is a prefix check.
+
+Musician app, `src/app/(musician)/m/`, theme `poster` (warm retro gig-poster look; see mockup notes below). Bottom nav, 5 slots:
+Feed (home) | Discover | + (new post, raised center button) | Bookings | Profile.
+Header has logo, Alerts and Messages icons. Messages is a placeholder (real-time chat is out of scope).
+
+Venue app, `src/app/(venue)/v/`, theme `daylight` (light, calendar-first, denser, utilitarian). Bottom nav, 4 tabs:
+Calendar | Requests | Find acts | Venue profile. Plus a prominent "Need an act tonight" flow that posts an urgent slot.
+
+Both nav bars become side rails on desktop (`md` and up). Not built yet.
+
+### Musician visual language (from the user's mockup)
+- Tokens (in `src/app/globals.css`): cream `#f6e5bc` background, espresso `#3b2314`, burnt orange `#b8461a`, mustard `#e4a52a`, brick `#8f2d1c`.
+- Type: Anton (display, uppercase), Space Mono (labels, uppercase, tracked), DM Sans (body), Playfair Display 900 italic (logo and date numerals).
+- Signature pieces: four-line stripe under the logo; "Now booking" ticket card with punched notches and an orange date stub (this is the natural place for BOOSTED slots); post card with vinyl-record media and a rotated "Verified sound" stamp.
+- Contrast was checked: all small text meets 4.5:1. Re-check any new color pair.
+- Components share token NAMES across themes (`bg-bg`, `text-ink`, `bg-gold`, `bg-accent`, `bg-nav`...), so shared components work in both apps.
+
+## Data model (target; refine in migrations)
+profiles(id, role, display_name, city, neighborhood, avatar_url, onboarded_at)
+musician_profiles(profile_id, genres, rate_min_cents, rate_max_cents, bio, media_links, photos, available_tonight, verified_sound)
+musician_availability(musician_id, weekday or date)
+venue_profiles(profile_id, venue_type, capacity, has_pa, stage_notes, address, photos)
+gig_slots(id, venue_id, starts_at, set_length_min, pay_cents, genre, gear_provided, status, is_urgent, boosted_until)
+applications(id, slot_id, musician_id, status), unique(slot_id, musician_id)
+invitations(id, slot_id, musician_id, status)
+bookings(id, slot_id unique, application_id, musician_id, venue_id, agreed_pay_cents, completed_at, cancelled_at, cancelled_by)
+reviews(id, booking_id, reviewer_id, reviewee_id, rating, body, created_at), unique(booking_id, reviewer_id)
+posts(id, author_id, kind, body, media_url, slot_id, created_at)
+subscriptions(musician_id, stripe_customer_id, stripe_subscription_id, plan, status, current_period_end)
+boosts(id, slot_id, venue_id, stripe_checkout_session_id, starts_at, ends_at)
+Money is integer cents. Timestamps are timestamptz, displayed in America/New_York.
+
+## Security rules
+- Row Level Security on every table. Users edit only their own rows.
+- Reviews: allowed only on completed bookings by a party to the booking. A review is visible to the other side once both reviews exist OR 7 days have passed. Implement as a computed RLS rule, not a stored column (a column cannot flip itself without a cron job).
+- Subscription and boost state is written only by the server (service role) from the Stripe webhook, never trusted from the browser.
+- `SUPABASE_SERVICE_ROLE_KEY` and `STRIPE_SECRET_KEY` are server-only. Never import them in client code.
+- The webhook is the source of truth for payments, not the success redirect.
+- Dev-only: `proxy.ts` may skip auth when Supabase env vars are missing and NODE_ENV is not production. Never fail open in production.
+
+## Seed data and demo
+- Fictional Dayton-area venues and musicians only (no real business names): 6 venues, 15 musicians, 20 slots, some completed bookings with reviews.
+- Seeding runs through a script using the Supabase admin API (it must create auth users).
+- Login screen gets one-tap "Demo as musician" and "Demo as venue" buttons (user approved). Hide them outside the demo.
+- Images are generated gradients and SVG, no licensed photos.
+- Email confirmation is disabled in Supabase so sign-up works on stage.
+
+## Out of scope
+Native apps, in-app gig payouts (for now), push notifications, real-time chat, recommendation algorithms, admin dashboard.
+
+## Phases and status
+1. Scaffold, auth, role-based routing. DONE so far: scaffold, tokens, both shells, musician Feed home matching the mockup (sample data), PWA manifest, skeleton loader. TODO: Supabase clients, `proxy.ts` role guard, migrations (schema + RLS), signup and 3-screen onboarding, demo login, PWA icons (192 and 512 PNG in `/public`), Stripe test-mode spike.
+2. Venue flow. 3. Musician flow. 4. Stripe test payments (subscription, boost, cancellation fee). 5. Reviews and feed. 6. Seed data and polish, deploy.
+
+## Environment notes
+- Cloud environment `gigmate` allows only: the Supabase project host (`wbekcrhqodrphehktutt.supabase.co`), `api.stripe.com`, and package registries. Add hosts through the environment settings.
+- Supabase env var names: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`. Stripe: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`. New variables only load in a NEW session.
+- Playwright and Chromium are preinstalled. Screenshot check: `NODE_PATH=$(npm root -g) node script.js` from outside the project. Kill old servers with `fuser -k <port>/tcp` before restarting (a stale `next start` serves a replaced build and breaks CSS).
+- Pushes use the Claude GitHub App on `mnhienln/gigmate`.
