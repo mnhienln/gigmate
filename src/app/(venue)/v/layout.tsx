@@ -1,3 +1,4 @@
+import { RoleGate } from "@/components/auth/role-gate";
 import { BottomNav, type NavItem } from "@/components/ui/bottom-nav";
 
 const items: NavItem[] = [
@@ -11,7 +12,7 @@ export default function VenueLayout({ children }: LayoutProps<"/v">) {
   return (
     <div data-theme="daylight" className="min-h-dvh bg-bg text-ink">
       <main className="mx-auto w-full max-w-[520px] pb-[calc(96px+env(safe-area-inset-bottom))]">
-        {children}
+        <RoleGate role="venue">{children}</RoleGate>
       </main>
       <BottomNav items={items} label="Venue navigation" />
     </div>

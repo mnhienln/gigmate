@@ -1,17 +1,6 @@
 import Link from "next/link";
 import { Bell, MessageSquare } from "lucide-react";
-
-/** Four stacked lines under the logo: the retro "poster" signature. */
-function Stripes() {
-  return (
-    <div aria-hidden className="flex flex-col gap-[3px]">
-      <div className="h-[4px] bg-gold" />
-      <div className="h-[4px] bg-accent" />
-      <div className="h-[4px] bg-brick" />
-      <div className="h-[4px] bg-panel" />
-    </div>
-  );
-}
+import { Stripes } from "@/components/ui/stripes";
 
 export function AppHeader({
   city,

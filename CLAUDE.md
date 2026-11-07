@@ -66,7 +66,8 @@ Money is integer cents. Timestamps are timestamptz, displayed in America/New_Yor
 - Subscription and boost state is written only by the server (service role) from the Stripe webhook, never trusted from the browser.
 - `SUPABASE_SERVICE_ROLE_KEY` and `STRIPE_SECRET_KEY` are server-only. Never import them in client code.
 - The webhook is the source of truth for payments, not the success redirect.
-- Dev-only: `proxy.ts` may skip auth when Supabase env vars are missing and NODE_ENV is not production. Never fail open in production.
+- `src/proxy.ts` is only an optimistic redirect (logged out goes to /login). The real checks are `requireRole()` in `src/lib/auth.ts` (rendered through `<RoleGate>` in each app layout) and RLS in the database. Every server action must re-check the user itself.
+- Role and column protection: `profiles.role`, `musician_profiles.verified_sound`, `gig_slots.boosted_until` and `gig_slots.status` are NOT writable by users (column grants). Slot status and bookings change only through the SQL functions `accept_application()` and `mark_gig_complete()`.
 
 ## Seed data and demo
 - Fictional Dayton-area venues and musicians only (no real business names): 6 venues, 15 musicians, 20 slots, some completed bookings with reviews.
@@ -79,11 +80,15 @@ Money is integer cents. Timestamps are timestamptz, displayed in America/New_Yor
 Native apps, in-app gig payouts (for now), push notifications, real-time chat, recommendation algorithms, admin dashboard.
 
 ## Phases and status
-1. Scaffold, auth, role-based routing. DONE so far: scaffold, tokens, both shells, musician Feed home matching the mockup (sample data), PWA manifest, skeleton loader. TODO: Supabase clients, `proxy.ts` role guard, migrations (schema + RLS), signup and 3-screen onboarding, demo login, PWA icons (192 and 512 PNG in `/public`), Stripe test-mode spike.
+1. Scaffold, auth, role-based routing. DONE: scaffold, tokens, both shells, musician Feed home (sample data), `supabase/migrations/0001_init.sql` (schema, RLS, functions) with 37 passing local tests (`npm run test:db`), `0002_storage.sql`, Supabase clients, proxy, `requireRole`/`RoleGate`, login, signup with role choice, 3-step onboarding per role, `/home` router, logout, demo-login buttons (`DEMO_MODE=true`), `scripts/create-demo-users.mjs`. THE USER MUST RUN BOTH MIGRATION FILES in the Supabase SQL Editor (0001 then 0002) before signup works; then run `npm run demo:users`. UNTESTED against the live project until then. TODO: PWA icons (192 and 512 PNG in `/public`), Stripe test-mode spike (webhook), desktop side rail.
 2. Venue flow. 3. Musician flow. 4. Stripe test payments (subscription, boost, cancellation fee). 5. Reviews and feed. 6. Seed data and polish, deploy.
 
 ## Environment notes
 - Cloud environment `gigmate` allows only: the Supabase project host (`wbekcrhqodrphehktutt.supabase.co`), `api.stripe.com`, and package registries. Add hosts through the environment settings.
+- Local-only env: `DEMO_MODE=true` and `DEMO_PASSWORD` (demo accounts `demo.musician@gigmate.test`, `demo.venue@gigmate.test`). Set the same on Vercel for the demo site.
 - Supabase env var names: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`. Stripe: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`. New variables only load in a NEW session.
 - Playwright and Chromium are preinstalled. Screenshot check: `NODE_PATH=$(npm root -g) node script.js` from outside the project. Kill old servers with `fuser -k <port>/tcp` before restarting (a stale `next start` serves a replaced build and breaks CSS).
 - Pushes use the Claude GitHub App on `mnhienln/gigmate`.
+- The Supabase SECRET key is saved on the cloud environment as a network credential for the Supabase host; the proxy injects it into requests. It is NOT in any env var, so locally `.env.local` holds a placeholder `sb_secret_placeholder_injected_by_proxy`. Consequence: every request from this container to Supabase carries the secret key in the `apikey` header, so tests from here are not a faithful check of RLS. Use `npm run test:db` (PGlite) for that.
+- This container cannot create tables (no database login). SQL is applied by the user pasting it into the Supabase SQL Editor.
+- Never ask the user to paste keys in chat. If they do, tell them to rotate the key.

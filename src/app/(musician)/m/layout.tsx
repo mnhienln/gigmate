@@ -1,3 +1,4 @@
+import { RoleGate } from "@/components/auth/role-gate";
 import { BottomNav, type NavItem } from "@/components/ui/bottom-nav";
 
 /*
@@ -23,7 +24,7 @@ export default function MusicianLayout({
       className="min-h-dvh bg-bg text-ink"
     >
       <main className="mx-auto w-full max-w-[520px] pb-[calc(96px+env(safe-area-inset-bottom))]">
-        {children}
+        <RoleGate role="musician">{children}</RoleGate>
       </main>
       <BottomNav items={items} label="Musician navigation" />
     </div>
