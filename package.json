@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test:db": "node supabase/tests/rls.test.mjs",
-    "demo:users": "node --env-file=.env.local scripts/create-demo-users.mjs"
+    "demo:users": "node --env-file=.env.local scripts/create-demo-users.mjs",
+    "test:unit": "node --test src/lib/dates.test.ts"
   },
   "dependencies": {
     "@fontsource/anton": "^5.3.0",

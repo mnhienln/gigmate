@@ -1,6 +1,6 @@
 import type { ComponentProps, ReactNode } from "react";
 
-const inputClass =
+export const inputClass =
   "min-h-12 w-full rounded-xl border-2 border-ink bg-transparent px-4 text-base placeholder:text-ink-muted/70";
 
 /** Label + input + optional hint. Labels are real <label>s so screen readers and taps both work. */

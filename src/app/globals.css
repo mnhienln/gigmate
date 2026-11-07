@@ -23,24 +23,28 @@
   --brick-ink: #f6e5bc;
   --nav: #3b2314;
   --nav-ink: #f6e5bc;
+  --nav-active: #e4a52a; /* selected tab on the dark nav, 6.8:1 */
 }
 
-/* Venue app: light, calm, utilitarian */
+/* Venue app: same brand family as the musician poster look, but daytime,
+   denser and utilitarian. Same variable NAMES, so shared components just work.
+   To change the venue look later, edit only this block. */
 [data-theme="daylight"] {
-  --bg: #f7f7f4;
-  --ink: #1c1b19;
-  --ink-muted: #55524c;
-  --line: #deddd6;
-  --panel: #ffffff;
-  --panel-ink: #1c1b19;
-  --accent: #1d4ed8;
-  --accent-ink: #ffffff;
-  --gold: #1d4ed8;
-  --gold-ink: #ffffff;
-  --brick: #b42318;
-  --brick-ink: #ffffff;
-  --nav: #ffffff;
-  --nav-ink: #1c1b19;
+  --bg: #fbf8f1; /* warm white paper */
+  --ink: #2b1a10; /* espresso text */
+  --ink-muted: #5f4a3a; /* 7.6:1 on --bg */
+  --line: #e4dac6;
+  --panel: #ffffff; /* cards */
+  --panel-ink: #2b1a10;
+  --accent: #3b2314; /* espresso: selected states, secondary emphasis */
+  --accent-ink: #fbf8f1;
+  --gold: #b8461a; /* burnt orange: THE primary action color in the venue app */
+  --gold-ink: #fffaf0;
+  --brick: #8f2d1c; /* alerts, urgent */
+  --brick-ink: #fffaf0;
+  --nav: #3b2314;
+  --nav-ink: #f6e5bc;
+  --nav-active: #e4a52a; /* selected tab on the dark nav, 6.8:1 */
 }
 
 @theme inline {
@@ -58,6 +62,7 @@
   --color-brick-ink: var(--brick-ink);
   --color-nav: var(--nav);
   --color-nav-ink: var(--nav-ink);
+  --color-nav-active: var(--nav-active);
 
   --font-display: "Anton", Impact, "Arial Narrow Bold", sans-serif;
   --font-mono: "Space Mono", ui-monospace, "SFMono-Regular", monospace;

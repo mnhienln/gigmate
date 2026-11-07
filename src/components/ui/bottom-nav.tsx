@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -40,18 +41,26 @@ export type NavItem = {
 /*
   Why a client component: it needs usePathname() to highlight the active tab.
   Everything else in the shell stays a server component, so only this small
-  piece ships JavaScript to the phone. Tradeoff: one extra client bundle,
-  in exchange for correct "you are here" feedback.
-*/
-export function BottomNav({
-  items,
-  label,
-}: {
-  items: NavItem[];
-  label: string;
-}) {
-  const pathname = usePathname();
+  piece ships JavaScript to the phone.
 
+  Why the Suspense: on pages with an ID in the URL (like /v/calendar/[slotId])
+  the current path is unknown while the page is being pre-built. The fallback
+  draws the very same bar with no tab highlighted, so nothing pops in; the
+  highlight appears as soon as the path is known.
+*/
+export function BottomNav({ items, label }: { items: NavItem[]; label: string }) {
+  return (
+    <Suspense fallback={<NavView items={items} label={label} pathname="" />}>
+      <ActiveNav items={items} label={label} />
+    </Suspense>
+  );
+}
+
+function ActiveNav({ items, label }: { items: NavItem[]; label: string }) {
+  return <NavView items={items} label={label} pathname={usePathname()} />;
+}
+
+function NavView({ items, label, pathname }: { items: NavItem[]; label: string; pathname: string }) {
   return (
     <nav
       aria-label={label}
@@ -88,7 +97,7 @@ export function BottomNav({
                 href={href}
                 aria-current={active ? "page" : undefined}
                 className={`flex min-h-[56px] flex-col items-center justify-center gap-1 font-mono text-[11px] font-bold uppercase tracking-wide ${
-                  active ? "text-gold" : "text-nav-ink"
+                  active ? "text-nav-active" : "text-nav-ink"
                 }`}
               >
                 <Icon size={24} strokeWidth={active ? 2.5 : 1.75} aria-hidden />
