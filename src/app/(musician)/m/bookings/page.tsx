@@ -31,6 +31,7 @@ async function Content({ searchParams }: { searchParams: PageProps<"/m/bookings"
   const [apps, bookings] = await Promise.all([getMyApplications(profile.id), getMyBookings(profile.id)]);
 
   const confirmed = bookings.filter((b) => !b.completed_at && !b.cancelled_at).sort((a, b) => a.slot.starts_at.localeCompare(b.slot.starts_at));
+  const cancelled = bookings.filter((b) => b.cancelled_at).sort((a, b) => b.slot.starts_at.localeCompare(a.slot.starts_at));
   const completed = bookings.filter((b) => b.completed_at).sort((a, b) => b.slot.starts_at.localeCompare(a.slot.starts_at));
   const order = { pending: 0, declined: 1, withdrawn: 2, accepted: 3 } as const;
   const applied = [...apps].sort((a, b) => order[a.status] - order[b.status] || a.slot.starts_at.localeCompare(b.slot.starts_at));
@@ -87,6 +88,25 @@ async function Content({ searchParams }: { searchParams: PageProps<"/m/bookings"
               />
             ))
           ))}
+
+        {tab === "confirmed" && cancelled.length > 0 && (
+          <section aria-label="Cancelled by the venue" className="flex flex-col gap-4">
+            <h2 className="mt-2 font-mono text-[12px] font-bold uppercase tracking-[0.2em] text-ink-muted">Cancelled by the venue</h2>
+            {cancelled.map((b) => (
+              <GigRow
+                key={b.id}
+                startsAt={b.slot.starts_at}
+                setLength={b.slot.set_length_min}
+                payCents={b.agreed_pay_cents}
+                venue={b.slot.venue}
+                genre={b.slot.genre}
+                badge="Cancelled"
+                badgeTone="muted"
+                note={b.cancelled_late ? "The venue cancelled less than 48 hours before the gig. That is recorded on their profile." : "The venue cancelled this gig in good time. Plenty more in Discover."}
+              />
+            ))}
+          </section>
+        )}
 
         {tab === "applied" &&
           (applied.length === 0 ? (

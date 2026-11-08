@@ -24,10 +24,19 @@ export function MusicianProfileForm({ initial }: { initial: MyProfile }) {
       </div>
       <TextArea label="Bio" name="bio" maxLength={300} defaultValue={v.bio ?? initial.bio ?? ""} hint="Up to 300 characters." />
       <fieldset className="flex flex-col gap-4">
-        <legend className="mb-1 font-mono text-[12px] font-bold uppercase tracking-wide">Listen links (up to 3)</legend>
-        <Field label="Link 1" name="link1" type="url" inputMode="url" placeholder="https://" defaultValue={v.link1 ?? links[0] ?? ""} />
-        <Field label="Link 2" name="link2" type="url" inputMode="url" placeholder="https://" defaultValue={v.link2 ?? links[1] ?? ""} />
-        <Field label="Link 3" name="link3" type="url" inputMode="url" placeholder="https://" defaultValue={v.link3 ?? links[2] ?? ""} hint="YouTube, Spotify, SoundCloud, Bandcamp or anywhere venues can hear you." />
+        <legend className="mb-1 font-mono text-[12px] font-bold uppercase tracking-wide">Music links (up to 5)</legend>
+        <p className="text-sm text-ink-muted">Paste your Spotify, YouTube or SoundCloud page. They appear as buttons on your profile.</p>
+        {[1, 2, 3, 4, 5].map((n) => (
+          <Field
+            key={n}
+            label={`Link ${n}`}
+            name={`link${n}`}
+            type="url"
+            inputMode="url"
+            placeholder="https://"
+            defaultValue={v[`link${n}`] ?? links[n - 1] ?? ""}
+          />
+        ))}
       </fieldset>
       <Toggle label="I am available to play tonight" name="available_tonight" defaultChecked={initial.available_tonight} />
       <SubmitButton pendingText="Saving...">Save press kit</SubmitButton>

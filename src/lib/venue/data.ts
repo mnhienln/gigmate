@@ -178,10 +178,11 @@ export async function getRequestsByIds(venueId: string, ids: string[]): Promise<
 
 export async function getVenueProfile(venueId: string) {
   const supabase = await createClient();
-  const [p, v, r] = await Promise.all([
+  const [p, v, r, rel] = await Promise.all([
     supabase.from("profiles").select("display_name, neighborhood").eq("id", venueId).single(),
     supabase.from("venue_profiles").select("venue_type, capacity, has_pa, stage_notes, address").eq("profile_id", venueId).single(),
     supabase.from("review_summaries").select("review_count, avg_rating").eq("reviewee_id", venueId).maybeSingle(),
+    supabase.from("venue_reliability").select("late_cancellations, gigs_hosted").eq("venue_id", venueId).maybeSingle(),
   ]);
   if (p.error || v.error) throw new Error("Could not load your venue profile.");
   return {
@@ -192,6 +193,8 @@ export async function getVenueProfile(venueId: string) {
     has_pa: v.data.has_pa as boolean,
     stage_notes: v.data.stage_notes as string | null,
     address: v.data.address as string | null,
+    late_cancellations: (rel.data?.late_cancellations as number | undefined) ?? 0,
+    gigs_hosted: (rel.data?.gigs_hosted as number | undefined) ?? 0,
     rating: r.data ? { avg: Number(r.data.avg_rating), count: r.data.review_count as number } : null,
   };
 }

@@ -80,5 +80,14 @@ for (const d of demos) {
   if (p.error) throw p.error;
   const q = await admin.from(d.detail.table).update(d.detail.row).eq("profile_id", id);
   if (q.error) throw q.error;
+  // The demo musician starts with an active plan so the live demo can apply to gigs without a payment step
+  // (a real Stripe test checkout is still available from any other account). Needs migration 0005 first.
+  if (d.role === "musician") {
+    const sub = await admin.from("subscriptions").upsert(
+      { musician_id: id, plan: "monthly", status: "active", current_period_end: new Date(Date.now() + 365 * 86400 * 1000).toISOString(), updated_at: new Date().toISOString() },
+      { onConflict: "musician_id" },
+    );
+    if (sub.error) throw sub.error;
+  }
   console.log(`ready: ${d.email} (${d.role})`);
 }

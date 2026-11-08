@@ -5,6 +5,7 @@ import { parseWhen } from "@/lib/dates";
 import { ANY_GENRE, GENRES } from "@/lib/options";
 import { getOpenSlots } from "@/lib/musician/data";
 import { APPLY_MESSAGES } from "@/lib/musician/messages";
+import { getMySubscription } from "@/lib/musician/subscription";
 import { DiscoverFilters, PAY_OPTIONS } from "@/components/musician/discover-filters";
 import { SlotTicket } from "@/components/musician/slot-ticket";
 import { FormMessage } from "@/components/ui/form-message";
@@ -22,7 +23,7 @@ async function Content({ searchParams }: { searchParams: PageProps<"/m/discover"
   const payNum = Number(typeof sp.pay === "string" ? sp.pay : 0);
   const pay = (PAY_OPTIONS as readonly number[]).includes(payNum) ? payNum : 0;
 
-  const slots = await getOpenSlots(profile.id, { when, genre, minPayDollars: pay || undefined });
+  const [slots, plan] = await Promise.all([getOpenSlots(profile.id, { when, genre, minPayDollars: pay || undefined }), getMySubscription(profile.id)]);
 
   const qs = new URLSearchParams();
   if (when !== "any") qs.set("when", when);
@@ -58,7 +59,7 @@ async function Content({ searchParams }: { searchParams: PageProps<"/m/discover"
       ) : (
         <div className="flex flex-col gap-6">
           {slots.map((s) => (
-            <SlotTicket key={s.id} slot={s} returnTo={returnTo} />
+            <SlotTicket key={s.id} slot={s} returnTo={returnTo} canApply={plan.active} />
           ))}
         </div>
       )}

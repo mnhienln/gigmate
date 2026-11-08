@@ -21,6 +21,15 @@ async function Content() {
         </p>
       </header>
 
+      <section aria-label="Reliability" className="mx-5 rounded-2xl border-2 border-line bg-panel p-4">
+        <p className="font-mono text-[11px] font-bold uppercase tracking-wide text-ink-muted">Reliability, shown to musicians</p>
+        <p className="mt-1 text-base">
+          <span className="font-display text-3xl leading-none">{venue.late_cancellations}</span> late cancellation{venue.late_cancellations === 1 ? "" : "s"}
+          <span className="text-ink-muted"> · {venue.gigs_hosted} gig{venue.gigs_hosted === 1 ? "" : "s"} hosted</span>
+        </p>
+        <p className="mt-1 text-sm text-ink-muted">Cancelling a confirmed gig less than 48 hours ahead adds one here and costs a fee.</p>
+      </section>
+
       <section aria-label="Reviews" className="mx-5 rounded-2xl border-2 border-line bg-panel p-4">
         <p className="font-mono text-[11px] font-bold uppercase tracking-wide text-ink-muted">Reviews from musicians</p>
         {venue.rating ? (

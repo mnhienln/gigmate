@@ -6,6 +6,7 @@ import { getCurrentProfile, homeFor, type CurrentProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { GENRES, NEIGHBORHOODS } from "@/lib/options";
 import { linkLabel } from "@/lib/media";
+import { getMySubscription } from "@/lib/musician/subscription";
 import { valuesFrom, type FormState } from "@/lib/form-state";
 
 /* Every action starts here: look up who is calling, refuse anyone who is not a finished musician. */
@@ -37,6 +38,11 @@ export async function applyToSlot(slotId: string, returnTo: string): Promise<voi
   const profile = await requireMusician();
   const back = safeReturnTo(returnTo);
   if (!idSchema.safeParse(slotId).success) redirect(withParam(back, "apply", "other"));
+
+  // Applying needs an active plan (a free trial counts). Browsing stays free. The database enforces this
+  // too (see 0005_payments.sql); checking here lets us give a clear message instead of a generic refusal.
+  const mine = await getMySubscription(profile.id);
+  if (!mine.active) redirect(withParam(back, "apply", "subscribe"));
 
   const supabase = await createClient();
   const { error } = await supabase.from("applications").insert({ slot_id: slotId, musician_id: profile.id });
@@ -92,18 +98,20 @@ const profileSchema = z
     link1: optionalLink,
     link2: optionalLink,
     link3: optionalLink,
+    link4: optionalLink,
+    link5: optionalLink,
   })
   .refine((v) => v.rate_max >= v.rate_min, { message: "Your top rate should be at least your lowest rate." });
 
 export async function updateMusicianProfile(_prev: FormState, formData: FormData): Promise<FormState> {
   const profile = await requireMusician();
-  const values = valuesFrom(formData, ["display_name", "neighborhood", "rate_min", "rate_max", "bio", "link1", "link2", "link3"]);
+  const values = valuesFrom(formData, ["display_name", "neighborhood", "rate_min", "rate_max", "bio", "link1", "link2", "link3", "link4", "link5"]);
 
   const parsed = profileSchema.safeParse({ ...Object.fromEntries(formData), genres: formData.getAll("genres") });
   if (!parsed.success) return { error: parsed.error.issues[0].message, values };
   const d = parsed.data;
 
-  const links = [...new Set([d.link1, d.link2, d.link3].filter((u): u is string => Boolean(u)))].map((url) => ({ label: linkLabel(url), url }));
+  const links = [...new Set([d.link1, d.link2, d.link3, d.link4, d.link5].filter((u): u is string => Boolean(u)))].map((url) => ({ label: linkLabel(url), url }));
 
   const supabase = await createClient();
   const a = await supabase.from("profiles").update({ display_name: d.display_name, neighborhood: d.neighborhood }).eq("id", profile.id);

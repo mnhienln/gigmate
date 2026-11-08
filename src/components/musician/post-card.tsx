@@ -1,22 +1,21 @@
 import { ExternalLink, Play } from "lucide-react";
+import { Avatar } from "@/components/profile/avatar";
 import { timeAgo } from "@/lib/dates";
 import { linkLabel } from "@/lib/media";
+import { PHOTOS, VIDEOS, publicUrl } from "@/lib/storage";
 import type { FeedPost } from "@/lib/types";
 import { Vinyl } from "./vinyl";
 
-/* A scene post. Announcements are text. Clips get the vinyl block, which opens
-   the link in a new tab (we do not host audio, so there is nothing to stream). */
+/* A scene post. Three kinds of content can appear:
+   - an uploaded photo or video (shown big, like Instagram),
+   - a link clip (the vinyl block that opens Spotify, YouTube and so on),
+   - plain words (announcements). */
 export function PostCard({ post }: { post: FeedPost }) {
   const isClip = post.kind === "clip" && post.media_url;
   return (
     <article className="flex flex-col gap-4">
       <header className="flex items-center gap-3">
-        <span
-          aria-hidden
-          className="flex size-12 shrink-0 items-center justify-center rounded-full bg-gold font-logo text-lg font-black italic text-gold-ink"
-        >
-          {post.author.initials}
-        </span>
+        <Avatar name={post.author.name} path={post.author.avatar_path} size={48} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-base font-bold leading-tight">{post.author.name}</p>
           <p className="font-mono text-[10px] uppercase text-ink-muted">
@@ -29,6 +28,24 @@ export function PostCard({ post }: { post: FeedPost }) {
           </span>
         )}
       </header>
+
+      {post.media && (
+        <div className="overflow-hidden rounded-2xl bg-black">
+          {post.media.type === "video" ? (
+            <video
+              src={publicUrl(VIDEOS, post.media.path)}
+              poster={post.media.poster_path ? publicUrl(PHOTOS, post.media.poster_path) : undefined}
+              controls
+              playsInline
+              preload="none"
+              className="max-h-[70dvh] w-full"
+            />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={publicUrl(PHOTOS, post.media.path)} alt={post.body || `Photo from ${post.author.name}`} loading="lazy" decoding="async" className="max-h-[70dvh] w-full object-contain" />
+          )}
+        </div>
+      )}
 
       {isClip && (
         <div className="flex items-center gap-5 rounded-2xl bg-brick p-5 text-brick-ink">
@@ -49,7 +66,7 @@ export function PostCard({ post }: { post: FeedPost }) {
         </div>
       )}
 
-      <p className="whitespace-pre-line break-words text-base leading-relaxed">{post.body}</p>
+      {post.body && <p className="whitespace-pre-line break-words text-base leading-relaxed">{post.body}</p>}
 
       {post.media_url && !isClip && (
         <a href={post.media_url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1.5 font-mono text-[13px] uppercase tracking-wide text-brick underline underline-offset-4">

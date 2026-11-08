@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { acceptApplication, declineApplication } from "@/app/(venue)/v/actions";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -79,6 +80,10 @@ export function RequestCard({
           <dd className="font-bold">{formatRateRange(musician.rate_min_cents, musician.rate_max_cents)}</dd>
         </div>
       </dl>
+
+      <Link href={`/v/musicians/${musician.id}`} className="flex min-h-11 w-fit items-center font-bold text-gold underline underline-offset-4">
+        View full profile
+      </Link>
 
       <div className="flex items-center justify-between">
         <ClipLink musician={musician} />
