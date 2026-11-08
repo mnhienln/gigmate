@@ -66,3 +66,19 @@ Tradeoff: another SQL file to apply. It is tested in the local security suite.
 ## 17. Auth-dependent behavior is tested on the deployed site
 Inside the cloud container, a network proxy attaches the secret key to every database request, so the database cannot tell who is logged in. Rather than bend the app to suit that, the browser tests have a real-keys mode that runs against the Vercel deployment. There, "accept an applicant", "gig happened" and the "gig just closed" refusal all run through the real database rules.
 Tradeoff: those tests need the live site and touch the live (demo) data, so they clean up after themselves.
+
+## 18. Files go from the phone straight to storage
+A phone photo is 5 to 10 MB and Vercel only accepts about 4.5 MB per request, so routing uploads through our server would fail. The browser resizes the photo, uploads it to Supabase Storage under the user's own folder, and then calls a small server action that only records the path. Storage rules and a database check both insist the path is in the caller's own folder.
+Tradeoff: more code runs on the phone, and an upload can succeed while recording fails, so the client removes the file if that happens.
+
+## 19. One posts table for the profile grid and the feed
+Instagram shows the same post in your grid and in followers' feeds, so we reuse `posts` and add optional media columns instead of creating a second table. A photo or video post can have an empty caption; a text post cannot.
+Tradeoff: the feed query carries a few more columns, but nothing has to be merged or kept in sync.
+
+## 20. A profile is read-only until you tap Edit profile
+Viewing and editing live on different pages. Nothing on the profile can be changed by a stray tap, and the same read-only view is what a venue sees, so what the musician previews is exactly what venues get.
+Tradeoff: one extra tap to edit.
+
+## 21. Streaming sites are buttons, not embedded players
+Spotify, YouTube and SoundCloud each need their own embed code and track URLs, and autoplay rules differ per phone. A button that opens the artist's page works the same everywhere and is what a booker needs: tap, listen, decide.
+Tradeoff: the listener leaves the app. Embeds can be added later per site.

@@ -101,6 +101,47 @@ export type FeedPost = {
   kind: "announcement" | "clip";
   body: string;
   media_url: string | null;
+  /** An uploaded photo or video (stored in Supabase Storage), if any. */
+  media: { type: "image" | "video"; path: string; poster_path: string | null } | null;
   created_at: string;
-  author: { id: string; name: string; role: "musician" | "venue"; initials: string; verified_sound: boolean };
+  author: { id: string; name: string; role: "musician" | "venue"; initials: string; verified_sound: boolean; avatar_path: string | null };
+};
+
+// ---------------------------------------------------------------------------
+// Instagram-style profiles
+// ---------------------------------------------------------------------------
+export type ProfilePost = {
+  id: string;
+  media_type: "image" | "video";
+  media_path: string;
+  poster_path: string | null;
+  body: string;
+  created_at: string;
+};
+
+export type Product = {
+  id: string;
+  title: string;
+  price_cents: number;
+  description: string | null;
+  photo_path: string | null;
+  buy_url: string | null;
+};
+
+export type ProfileView = {
+  id: string;
+  display_name: string;
+  neighborhood: string | null;
+  avatar_path: string | null;
+  verified_sound: boolean;
+  bio: string | null;
+  genres: string[];
+  rate_min_cents: number | null;
+  rate_max_cents: number | null;
+  available_tonight: boolean;
+  links: { label: string; url: string }[];
+  gigs_played: number;
+  rating: { avg: number; count: number } | null;
+  posts: ProfilePost[];
+  products: Product[];
 };

@@ -151,29 +151,37 @@ const card = (p, re) => p.locator('article', { hasText: 'Front Room Bar' }).filt
     ok('discover hides booked and finished gigs, keeps open ones with their status', await mine().count() === 3, await mine().count()); // S1, S2 (withdrawn), S4 (declined)
     ok('declined and withdrawn gigs cannot be applied to again', await card(p, /\$80/).locator('button:has-text("Apply")').count() === 0 && (await card(p, /\$80/).textContent()).includes('Not chosen') && (await card(p, /\$150/).textContent()).includes('Withdrawn'));
     
-    console.log('Press kit');
-    await p.goto(base + '/m/profile'); await p.waitForSelector('text=Edit press kit');
-    ok('profile shows what venues see', (await p.textContent('main')).includes('$100 to $250') && (await p.textContent('main')).includes('New, no reviews yet'));
+    console.log('Profile (view mode)');
+    await p.goto(base + '/m/profile'); await p.waitForSelector('h1:has-text("Mara Quinn")');
+    const prof = await p.textContent('main');
+    ok('profile shows rate, stats and an Edit profile button', prof.includes('$100 to $250') && prof.includes('Posts') && prof.includes('Gigs') && prof.includes('Rating') && await p.locator('a:has-text("Edit profile")').count() === 1);
+    ok('view mode has no edit controls (no form fields)', await p.locator('input[name=rate_min]').count() === 0);
     await p.screenshot({ path: S + '/m-profile.png', fullPage: true });
     await overflowAndTaps(p, 'profile');
+
+    console.log('Edit profile');
+    await p.click('a:has-text("Edit profile")'); await p.waitForSelector('h1:has-text("Edit profile")');
+    await p.screenshot({ path: S + '/m-profile-edit.png', fullPage: true });
+    await overflowAndTaps(p, 'edit profile');
     await p.fill('input[name=rate_min]', '300'); await p.fill('input[name=rate_max]', '100'); await p.click('button:has-text("Save press kit")'); await p.waitForSelector('form p[role=alert]');
     ok('reversed rates are rejected plainly', /top rate/i.test(await p.textContent('form p[role=alert]')));
-    await p.reload(); await p.waitForSelector('text=Edit press kit');
+    await p.reload(); await p.waitForSelector('h1:has-text("Edit profile")');
     await p.fill('input[name=link1]', 'javascript:alert(1)'); await p.click('button:has-text("Save press kit")'); await p.waitForSelector('form p[role=alert]');
     ok('a javascript: link is rejected', /https/.test(await p.textContent('form p[role=alert]')));
-    await p.reload(); await p.waitForSelector('text=Edit press kit');
+    await p.reload(); await p.waitForSelector('h1:has-text("Edit profile")');
     await p.evaluate(() => document.querySelectorAll('input[name=genres]:checked').forEach((i) => i.click())); // the boxes are visually hidden, so click them in the page
     await p.click('button:has-text("Save press kit")'); await p.waitForSelector('form p[role=alert]');
     ok('no genres is rejected plainly', /at least one genre/i.test(await p.textContent('form p[role=alert]')));
-    await p.reload(); await p.waitForSelector('text=Edit press kit');
+    await p.reload(); await p.waitForSelector('h1:has-text("Edit profile")');
     await p.click('label:has-text("Jazz")'); await p.fill('input[name=rate_min]', '120'); await p.fill('input[name=rate_max]', '260');
-    await p.fill('input[name=link1]', 'https://youtube.com/watch?v=abc'); await p.fill('input[name=link2]', 'https://open.spotify.com/artist/x');
+    await p.fill('input[name=link1]', 'https://youtube.com/watch?v=abc'); await p.fill('input[name=link2]', 'https://open.spotify.com/artist/x'); await p.fill('input[name=link3]', 'https://soundcloud.com/mara');
     await p.uncheck('input[name=available_tonight]');
     await p.click('button:has-text("Save press kit")'); await p.waitForSelector('form p[role=status]', { timeout: 15000 });
     const saved = sb('GET', `/rest/v1/musician_profiles?profile_id=eq.${mara}&select=genres,rate_min_cents,rate_max_cents,media_links,available_tonight`)[0];
-    ok('press kit saved: rates in cents, genres, links with friendly labels, availability', saved.rate_min_cents === 12000 && saved.rate_max_cents === 26000 && saved.genres.includes('Jazz') && saved.media_links.map(l => l.label).join() === 'YouTube,Spotify' && saved.available_tonight === false, JSON.stringify(saved));
-    await p.reload(); await p.waitForSelector('text=What venues see');
-    ok('profile page reflects the change', (await p.textContent('main')).includes('$120 to $260') && (await p.textContent('main')).includes('Not available tonight'));
+    ok('profile saved: rates in cents, genres, links with friendly labels, availability', saved.rate_min_cents === 12000 && saved.rate_max_cents === 26000 && saved.genres.includes('Jazz') && saved.media_links.map(l => l.label).join() === 'YouTube,Spotify,SoundCloud' && saved.available_tonight === false, JSON.stringify(saved));
+    await p.goto(base + '/m/profile?tab=music'); await p.waitForSelector('h1:has-text("Mara Quinn")');
+    ok('profile reflects the change, music tab shows a button per streaming site', (await p.textContent('main')).includes('$120 to $260') && !(await p.textContent('main')).includes('Available tonight') && await p.locator('a[href*="spotify.com"]:has-text("Spotify")').count() === 1 && await p.locator('a[href*="youtube.com"]:has-text("YouTube")').count() === 1 && await p.locator('a[href*="soundcloud.com"]:has-text("SoundCloud")').count() === 1);
+    await p.screenshot({ path: S + '/m-profile-music.png', fullPage: true });
 
     console.log('Role guard');
     const vp = await (await b.newContext({ viewport: { width: 375, height: 812 } })).newPage();

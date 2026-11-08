@@ -42,7 +42,9 @@ async function Content({ searchParams }: { searchParams: PageProps<"/v/requests/
 
       <div className="grid grid-cols-2 gap-3">
         {[a, b].map((r) => (
-          <h2 key={r.id} className="font-display text-2xl uppercase leading-none">{r.musician.display_name}</h2>
+          <h2 key={r.id} className="font-display text-2xl uppercase leading-none">
+            <Link href={`/v/musicians/${r.musician.id}`} className="underline decoration-2 underline-offset-4">{r.musician.display_name}</Link>
+          </h2>
         ))}
         {rows.map((row) => (
           <div key={row.label} className="col-span-2 grid grid-cols-2 gap-3 border-t-2 border-line pt-3">

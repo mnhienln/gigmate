@@ -92,18 +92,20 @@ const profileSchema = z
     link1: optionalLink,
     link2: optionalLink,
     link3: optionalLink,
+    link4: optionalLink,
+    link5: optionalLink,
   })
   .refine((v) => v.rate_max >= v.rate_min, { message: "Your top rate should be at least your lowest rate." });
 
 export async function updateMusicianProfile(_prev: FormState, formData: FormData): Promise<FormState> {
   const profile = await requireMusician();
-  const values = valuesFrom(formData, ["display_name", "neighborhood", "rate_min", "rate_max", "bio", "link1", "link2", "link3"]);
+  const values = valuesFrom(formData, ["display_name", "neighborhood", "rate_min", "rate_max", "bio", "link1", "link2", "link3", "link4", "link5"]);
 
   const parsed = profileSchema.safeParse({ ...Object.fromEntries(formData), genres: formData.getAll("genres") });
   if (!parsed.success) return { error: parsed.error.issues[0].message, values };
   const d = parsed.data;
 
-  const links = [...new Set([d.link1, d.link2, d.link3].filter((u): u is string => Boolean(u)))].map((url) => ({ label: linkLabel(url), url }));
+  const links = [...new Set([d.link1, d.link2, d.link3, d.link4, d.link5].filter((u): u is string => Boolean(u)))].map((url) => ({ label: linkLabel(url), url }));
 
   const supabase = await createClient();
   const a = await supabase.from("profiles").update({ display_name: d.display_name, neighborhood: d.neighborhood }).eq("id", profile.id);

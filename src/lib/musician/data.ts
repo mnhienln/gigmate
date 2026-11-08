@@ -186,16 +186,24 @@ export async function getMyProfile(musicianId: string): Promise<MyProfile> {
   };
 }
 
+type RawAuthor = {
+  id: string;
+  display_name: string;
+  role: "musician" | "venue";
+  avatar_url: string | null;
+  musician_profiles: { verified_sound: boolean } | { verified_sound: boolean }[] | null;
+};
+
 type RawPost = {
   id: string;
   kind: "announcement" | "clip";
   body: string;
   media_url: string | null;
+  media_path: string | null;
+  media_type: "image" | "video" | null;
+  poster_path: string | null;
   created_at: string;
-  author:
-    | { id: string; display_name: string; role: "musician" | "venue"; musician_profiles: { verified_sound: boolean } | { verified_sound: boolean }[] | null }
-    | { id: string; display_name: string; role: "musician" | "venue"; musician_profiles: { verified_sound: boolean } | { verified_sound: boolean }[] | null }[]
-    | null;
+  author: RawAuthor | RawAuthor[] | null;
 };
 
 /** Newest first. */
@@ -203,7 +211,7 @@ export async function getRecentPosts(limit = 20): Promise<FeedPost[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("posts")
-    .select("id, kind, body, media_url, created_at, author:profiles!posts_author_id_fkey(id, display_name, role, musician_profiles(verified_sound))")
+    .select("id, kind, body, media_url, media_path, media_type, poster_path, created_at, author:profiles!posts_author_id_fkey(id, display_name, role, avatar_url, musician_profiles(verified_sound))")
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) throw new Error("Could not load the feed.");
@@ -216,8 +224,16 @@ export async function getRecentPosts(limit = 20): Promise<FeedPost[]> {
       kind: r.kind,
       body: r.body,
       media_url: r.media_url,
+      media: r.media_path && r.media_type ? { type: r.media_type, path: r.media_path, poster_path: r.poster_path } : null,
       created_at: r.created_at,
-      author: { id: a.id, name: a.display_name, role: a.role, initials: initialsOf(a.display_name), verified_sound: one(a.musician_profiles)?.verified_sound ?? false },
+      author: {
+        id: a.id,
+        name: a.display_name,
+        role: a.role,
+        initials: initialsOf(a.display_name),
+        verified_sound: one(a.musician_profiles)?.verified_sound ?? false,
+        avatar_path: a.avatar_url,
+      },
     });
   }
   return out;

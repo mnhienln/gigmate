@@ -13,10 +13,12 @@ const db = new PGlite();
 let passed = 0;
 const failures = [];
 
+const migration = (name) => readFileSync(new URL(`../migrations/${name}`, import.meta.url), "utf8");
 const sql =
   readFileSync(process.env.SQL_PATH ?? new URL("../migrations/0001_init.sql", import.meta.url), "utf8") +
-  "\n" +
-  readFileSync(new URL("../migrations/0003_musician_rules.sql", import.meta.url), "utf8");
+  "\n" + migration("0002_storage.sql") +
+  "\n" + migration("0003_musician_rules.sql") +
+  "\n" + migration("0004_profiles_media.sql");
 
 // --- Supabase stand-ins ------------------------------------------------------
 await db.exec(`
@@ -34,6 +36,16 @@ await db.exec(`
   grant execute on function auth.uid() to anon, authenticated;
   -- Supabase grants everything on new public tables to these roles; RLS is the gate.
   alter default privileges in schema public grant all on tables to anon, authenticated;
+
+  -- Stand-ins for Supabase Storage: just enough for the policies in 0002 and 0004.
+  create schema storage;
+  create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
+  create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text);
+  alter table storage.objects enable row level security;
+  create function storage.foldername(name text) returns text[] language sql immutable as
+    $$ select (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1) - 1] $$;
+  grant usage on schema storage to anon, authenticated;
+  grant all on storage.objects to anon, authenticated;
 `);
 await db.exec(sql);
 
@@ -289,6 +301,72 @@ await test("a musician cannot apply to a slot that already started", async () =>
   const pastSlot = (await db.query(
     "insert into gig_slots (venue_id, starts_at, set_length_min, pay_cents) values ($1, now() - interval '2 hours', 60, 5000) returning id", [front])).rows[0].id;
   await fails(as(dana, "insert into applications (slot_id, musician_id) values ($1, $2)", [pastSlot, dana]), /row-level security/, "late application");
+});
+
+console.log("\nPhase 3.5: media posts, shop, stats and storage");
+const gus = await newUser("gus@x.test", "musician", "Gus Marlow");
+const ivy = await newUser("ivy@x.test", "musician", "Ivy Stone");
+const file = (uid, ext = "jpg") => `${uid}/00000000-0000-4000-8000-000000000001.${ext}`;
+await test("a photo post without a caption is allowed, and shows up for others", async () => {
+  await as(gus, "insert into posts (author_id, body, media_path, media_type) values ($1, '', $2, 'image')", [gus, file(gus)]);
+  assert.equal((await as(ivy, "select id from posts where author_id = $1", [gus])).rows.length, 1);
+});
+await test("a text-only post still needs words", async () => {
+  await fails(as(gus, "insert into posts (author_id, body) values ($1, '')", [gus]), /check constraint/, "empty text post");
+});
+await test("a video post can carry a poster image", async () => {
+  await as(gus, "insert into posts (author_id, body, media_path, media_type, poster_path) values ($1, 'Soundcheck', $2, 'video', $3)", [gus, file(gus, "mp4"), file(gus)]);
+});
+await test("a post cannot point at someone else's file", async () => {
+  await fails(as(gus, "insert into posts (author_id, body, media_path, media_type) values ($1, 'x', $2, 'image')", [gus, file(ivy)]), /check constraint/, "foreign media");
+  await fails(as(gus, "insert into posts (author_id, body, media_path, media_type, poster_path) values ($1, 'x', $2, 'video', $3)", [gus, file(gus, "mp4"), file(ivy)]), /check constraint/, "foreign poster");
+});
+await test("media path and type must come together", async () => {
+  await fails(as(gus, "insert into posts (author_id, body, media_path) values ($1, 'x', $2)", [gus, file(gus)]), /check constraint/, "path without type");
+});
+await test("only the author can delete a post", async () => {
+  const mine = (await as(gus, "select id from posts where author_id = $1 limit 1", [gus])).rows[0].id;
+  assert.equal((await as(ivy, "delete from posts where id = $1 returning id", [mine])).rows.length, 0);
+  assert.equal((await as(gus, "delete from posts where id = $1 returning id", [mine])).rows.length, 1);
+});
+await test("a musician can add a product; a venue cannot", async () => {
+  await as(gus, "insert into products (owner_id, title, price_cents, buy_url, photo_path) values ($1, 'Tour tee', 2500, 'https://shop.example.com/tee', $2)", [gus, file(gus)]);
+  await fails(as(front, "insert into products (owner_id, title, price_cents) values ($1, 'Pint glass', 800)", [front]), /row-level security/, "venue product");
+});
+await test("product rules: owner only, https link only, no negative price, own photo only", async () => {
+  await fails(as(ivy, "insert into products (owner_id, title, price_cents) values ($1, 'Fake', 100)", [gus]), /row-level security/, "product as someone else");
+  await fails(as(gus, "insert into products (owner_id, title, price_cents, buy_url) values ($1, 'Bad', 100, 'javascript:alert(1)')", [gus]), /check constraint/, "javascript link");
+  await fails(as(gus, "insert into products (owner_id, title, price_cents) values ($1, 'Neg', -5)", [gus]), /check constraint/, "negative price");
+  await fails(as(gus, "insert into products (owner_id, title, price_cents, photo_path) values ($1, 'Steal', 100, $2)", [gus, file(ivy)]), /check constraint/, "foreign product photo");
+});
+await test("everyone signed in can see products; only the owner can edit or delete", async () => {
+  assert.equal((await as(ivy, "select id from products where owner_id = $1", [gus])).rows.length, 1);
+  assert.equal((await as(ivy, "update products set price_cents = 1 where owner_id = $1 returning id", [gus])).rows.length, 0);
+  assert.equal((await as(ivy, "delete from products where owner_id = $1 returning id", [gus])).rows.length, 0);
+  assert.equal((await as(gus, "update products set price_cents = 3000 where owner_id = $1 returning id", [gus])).rows.length, 1);
+});
+await test("listen links are capped at 8", async () => {
+  const nine = JSON.stringify(Array.from({ length: 9 }, (_, i) => ({ label: "L" + i, url: "https://x.test/" + i })));
+  await fails(as(gus, "update musician_profiles set media_links = $2::jsonb where profile_id = $1", [gus, nine]), /check constraint/, "9 links");
+  await as(gus, "update musician_profiles set media_links = $2::jsonb where profile_id = $1", [gus, JSON.stringify([{ label: "Spotify", url: "https://open.spotify.com/artist/x" }])]);
+});
+await test("gigs played is public, but bookings stay private", async () => {
+  const stats = await as(cleo, "select gigs_played from musician_stats where musician_id = $1", [mara]);
+  assert.equal(stats.rows[0].gigs_played, 1); // Mara's completed booking from the reviews section
+  assert.equal((await as(cleo, "select id from bookings")).rows.length, 0);
+});
+await test("storage: you can only write inside your own folder, in both buckets", async () => {
+  for (const bucket of ["photos", "videos"]) {
+    await as(gus, "insert into storage.objects (bucket_id, name) values ($1, $2)", [bucket, `${gus}/a.bin`]);
+    await fails(as(gus, "insert into storage.objects (bucket_id, name) values ($1, $2)", [bucket, `${ivy}/a.bin`]), /row-level security/, `${bucket} foreign folder`);
+    assert.equal((await as(ivy, "delete from storage.objects where bucket_id = $1 and name = $2 returning id", [bucket, `${gus}/a.bin`])).rows.length, 0);
+    assert.equal((await as(gus, "delete from storage.objects where bucket_id = $1 and name = $2 returning id", [bucket, `${gus}/a.bin`])).rows.length, 1);
+  }
+});
+await test("the videos bucket exists with a size limit and video types only", async () => {
+  const b = (await db.query("select file_size_limit, allowed_mime_types from storage.buckets where id = 'videos'")).rows[0];
+  assert.equal(Number(b.file_size_limit), 41943040);
+  assert.deepEqual(b.allowed_mime_types, ["video/mp4", "video/quicktime", "video/webm"]);
 });
 
 console.log(`\n${passed} passed, ${failures.length} failed`);
