@@ -24,12 +24,15 @@ async function overflowAndTaps(p, name) {
   ok(`${name}: no sideways scroll`, o === 0, o);
   ok(`${name}: tap targets >= 44px`, small.length === 0, JSON.stringify(small));
 }
-const card = (p, re) => p.locator('article', { hasText: re });
+// Only the test venue's tickets (the app also holds seeded demo venues with similar gigs).
+const card = (p, re) => p.locator('article', { hasText: 'Front Room Bar' }).filter({ hasText: re });
 
 (async () => {
   const b = await chromium.launch();
   const ctx = await b.newContext({ viewport: { width: 375, height: 812 } });
   const p = await ctx.newPage();
+  // The app also holds seeded demo venues, so count only the test venue's tickets.
+  const mine = () => p.locator('article', { hasText: 'Front Room Bar' });
   const errs = []; p.on('pageerror', e => errs.push(String(e)));
   const venue = sb('GET', "/rest/v1/profiles?display_name=eq.Front%20Room%20Bar&select=id")[0].id;
   const mara = sb('GET', "/rest/v1/profiles?display_name=eq.Mara%20Quinn&select=id")[0].id;
@@ -49,36 +52,37 @@ const card = (p, re) => p.locator('article', { hasText: re });
     console.log('Feed');
     await p.goto(base + '/login'); await p.click('button[value=musician]'); await p.waitForURL('**/m/feed', { timeout: 25000 });
     await p.waitForSelector('text=Tonight, urgent', { timeout: 20000 });
-    ok('feed features the urgent gig', (await p.locator('article').first().textContent()).includes('Front Room Bar'));
+    ok('feed features the urgent gig', (await mine().first().textContent()).includes('Front Room Bar'));
     ok('feed header shows 0 pending', (await p.textContent('header')).includes('0 pending'));
-    ok('fake sample post is gone, empty-state shown instead', !(await p.textContent('main')).includes('New song first take') && (await p.textContent('main')).includes('No posts yet'));
+    ok('fake sample post is gone and real announcements show in the scene feed', !(await p.textContent('main')).includes('New song first take') && (await p.textContent('main')).includes('From the scene') && (await p.locator('article').count()) > 1);
     await p.screenshot({ path: S + '/m-feed.png', fullPage: true });
     await overflowAndTaps(p, 'feed');
 
     console.log('Discover and filters');
     await p.goto(base + '/m/discover'); await p.waitForSelector('article');
-    ok('discover lists all five open gigs', await p.locator('article').count() === 5, await p.locator('article').count());
-    ok('urgent gig is first', /Indie act wanted/i.test(await p.locator('article').first().textContent()));
+    ok('discover lists all five open gigs', await mine().count() === 5, await mine().count());
+    ok('urgent gig is first', /Indie act wanted/i.test(await mine().first().textContent()));
     ok('ticket shows venue, pay and gear', /Front Room Bar/.test(await card(p, /Folk act wanted/i).textContent()) && /\$150/.test(await card(p, /Folk act wanted/i).textContent()) && /PA system, Mics/.test(await card(p, /Folk act wanted/i).textContent()));
     await p.screenshot({ path: S + '/m-discover.png', fullPage: true });
     await overflowAndTaps(p, 'discover');
 
     await p.goto(base + '/m/discover?genre=Folk'); await p.waitForSelector('article');
-    ok('genre Folk shows Folk gig plus any-genre gig', await p.locator('article').count() === 2, await p.locator('article').count());
+    ok('genre Folk shows Folk gig plus any-genre gig', await mine().count() === 2, await mine().count());
     await p.goto(base + '/m/discover?pay=200'); await p.waitForSelector('article');
-    ok('minimum pay $200 shows the two big gigs', await p.locator('article').count() === 2, await p.locator('article').count());
+    ok('minimum pay $200 shows the two big gigs', await mine().count() === 2, await mine().count());
     await p.goto(base + '/m/discover?when=week'); await p.waitForSelector('article');
-    ok('next 7 days hides the gig 10 days out', await p.locator('article').count() === 4, await p.locator('article').count());
+    ok('next 7 days hides the gig 10 days out', await mine().count() === 4, await mine().count());
     await p.goto(base + '/m/discover?genre=Rock&pay=300'); await p.waitForSelector('article');
-    ok('combined filters narrow to one gig', await p.locator('article').count() === 1 && /Rock act wanted/i.test(await p.locator('article').first().textContent()));
-    await p.goto(base + '/m/discover?genre=Hip%20hop&pay=300'); await p.waitForSelector('text=Nothing fits those filters');
+    ok('combined filters narrow to one gig', await mine().count() === 1 && /Rock act wanted/i.test(await mine().first().textContent()));
+    await p.goto(base + '/m/discover?genre=Folk&pay=300'); // no Folk or any-genre gig pays $300 or more, even with seeded demo gigs
+     await p.waitForSelector('text=Nothing fits those filters');
     ok('no match shows a helpful empty state with a clear action', await p.locator('a:has-text("Clear filters")').count() === 1);
     await p.goto(base + '/m/discover?genre=%3Cscript%3E&pay=999&when=zzz'); await p.waitForSelector('article');
-    ok('junk filter values are ignored, not crashing', await p.locator('article').count() === 5);
+    ok('junk filter values are ignored, not crashing', await mine().count() === 5);
     await p.goto(base + '/m/discover'); await p.click('summary:has-text("Filters")');
     await p.selectOption('select[name=genre]', 'Folk'); await p.click('button:has-text("Show gigs")'); await p.waitForURL('**genre=Folk**');
     await p.waitForSelector('article');
-    ok('using the filter form updates the list', await p.locator('article').count() === 2);
+    ok('using the filter form updates the list', await mine().count() === 2);
     await p.screenshot({ path: S + '/m-discover-filtered.png', fullPage: true });
     await overflowAndTaps(p, 'discover with filters open');
 
@@ -116,7 +120,7 @@ const card = (p, re) => p.locator('article', { hasText: re });
     console.log('Bookings');
     await p.goto(base + '/m/bookings'); await p.waitForSelector('text=Waiting');
     ok('with nothing confirmed the Applied tab opens first', await p.locator('a[aria-current=page]:has-text("Applied")').count() === 1);
-    ok('three waiting applications listed', await p.locator('article').count() === 3);
+    ok('three waiting applications listed', await mine().count() === 3);
     await p.screenshot({ path: S + '/m-bookings-applied.png', fullPage: true });
     await overflowAndTaps(p, 'bookings (applied)');
     await card(p, /\$150/).locator('summary:has-text("Withdraw")').click();
@@ -135,16 +139,16 @@ const card = (p, re) => p.locator('article', { hasText: re });
 
     await p.goto(base + '/m/bookings'); await p.waitForSelector('text=Confirmed');
     ok('with a confirmed gig the Confirmed tab opens first', await p.locator('a[aria-current=page]:has-text("Confirmed")').count() === 1);
-    const conf = await p.locator('article').first().textContent();
+    const conf = await mine().first().textContent();
     ok('confirmed gig shows the address and the direct-pay note', /100 Example Street/.test(conf) && /\$300 is settled directly with the venue/.test(conf), conf);
     await p.screenshot({ path: S + '/m-bookings-confirmed.png', fullPage: true });
     await overflowAndTaps(p, 'bookings (confirmed)');
     await p.goto(base + '/m/bookings?tab=applied'); await p.waitForSelector('text=Not chosen');
     ok('declined application shows closure message', (await p.textContent('main')).includes('picked another act'));
     await p.goto(base + '/m/bookings?tab=completed'); await p.waitForSelector('text=Played');
-    ok('finished gig appears under Played', await p.locator('article').count() === 1);
+    ok('finished gig appears under Played', await mine().count() === 1);
     await p.goto(base + '/m/discover'); await p.waitForSelector('article');
-    ok('discover hides booked and finished gigs, keeps open ones with their status', await p.locator('article').count() === 3, await p.locator('article').count()); // S1, S2 (withdrawn), S4 (declined)
+    ok('discover hides booked and finished gigs, keeps open ones with their status', await mine().count() === 3, await mine().count()); // S1, S2 (withdrawn), S4 (declined)
     ok('declined and withdrawn gigs cannot be applied to again', await card(p, /\$80/).locator('button:has-text("Apply")').count() === 0 && (await card(p, /\$80/).textContent()).includes('Not chosen') && (await card(p, /\$150/).textContent()).includes('Withdrawn'));
     
     console.log('Press kit');

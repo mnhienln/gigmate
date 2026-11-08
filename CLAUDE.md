@@ -70,7 +70,10 @@ Money is integer cents. Timestamps are timestamptz, displayed in America/New_Yor
 - Role and column protection: `profiles.role`, `musician_profiles.verified_sound`, `gig_slots.boosted_until` and `gig_slots.status` are NOT writable by users (column grants). Slot status and bookings change only through the SQL functions `accept_application()` and `mark_gig_complete()`.
 
 ## Seed data and demo
-- Fictional Dayton-area venues and musicians only (no real business names): 6 venues, 15 musicians, 20 slots, some completed bookings with reviews.
+- Fictional Dayton-area venues and musicians only (no real business names). DECISION (user, Nov 2026): do NOT use real businesses such as Blind Bob's, and do not scrape Instagram; everything is invented.
+- DONE: `npm run seed` (`scripts/seed-demo.mjs`, run with `NODE_USE_ENV_PROXY=1` in the container) creates 14 fictional bars with addresses, capacity, PA and stage notes, 31 open gigs in the NEXT 3 WEEKS ($60 to $450, 12 genres, notes about tips and perks) and 8 venue announcements for the feed. Safe to re-run; RE-RUN IT THE DAY BEFORE THE DEMO so gigs stay in the future. It never touches the demo accounts (Mara Quinn, Front Room Bar). The demo venue starts with NO gigs on purpose, so the live demo can post one.
+- TODO: ~15 fictional musicians with press kits and completed bookings with reviews (phase 5/6), after the Instagram-style profile work.
+- Browser tests are scoped to the demo venue ("Front Room Bar") so seeded data cannot break them. Never run broad deletes on the live database (an unfiltered delete was blocked by the safety classifier); delete by exact id or by the test venue's id.
 - Seeding runs through a script using the Supabase admin API (it must create auth users).
 - Login screen gets one-tap "Demo as musician" and "Demo as venue" buttons (user approved). Hide them outside the demo.
 - Images are generated gradients and SVG, no licensed photos.

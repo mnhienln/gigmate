@@ -15,7 +15,12 @@ export default function LoginPage() {
           Create an account
         </Link>
       </p>
-      {process.env.DEMO_MODE === "true" && <DemoButtons />}
+      {process.env.DEMO_MODE === "true" && (
+        <>
+          <DemoButtons />
+          <p className="text-sm text-ink-muted">Demo data: every venue, musician and gig in this app is fictional.</p>
+        </>
+      )}
     </AuthShell>
   );
 }

@@ -84,7 +84,7 @@ async function attachMyStatus(musicianId: string, rows: RawSlot[]): Promise<Open
 }
 
 /** Open, not-yet-started gigs. Urgent ones first, then soonest. */
-export async function getOpenSlots(musicianId: string, filters: DiscoverFilters, limit = 40): Promise<OpenSlot[]> {
+export async function getOpenSlots(musicianId: string, filters: DiscoverFilters, limit = 60): Promise<OpenSlot[]> {
   const supabase = await createClient();
   const range = whenRange(filters.when);
 
