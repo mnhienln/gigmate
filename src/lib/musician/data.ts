@@ -2,6 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { whenRange, type When } from "@/lib/dates";
 import { initialsOf } from "@/lib/media";
+import { isBoosted } from "@/lib/pricing";
 import { ANY_GENRE } from "@/lib/options";
 import type { ApplicationStatus, FeedPost, MyApplication, MyBooking, MyProfile, OpenSlot, VenueSummary } from "@/lib/types";
 
@@ -37,6 +38,8 @@ function toVenue(raw: RawVenue | RawVenue[] | null): VenueSummary {
     venue_type: vp?.venue_type ?? null,
     has_pa: vp?.has_pa ?? false,
     address: vp?.address ?? null,
+    late_cancellations: null,
+    gigs_hosted: null,
   };
 }
 
@@ -84,20 +87,52 @@ async function attachMyStatus(musicianId: string, rows: RawSlot[]): Promise<Open
 }
 
 /** Open, not-yet-started gigs. Urgent ones first, then soonest. */
+/* Reliability numbers come from a view that shares only counts (late cancellations, gigs hosted), because the
+   bookings themselves are private to the two people involved. */
+async function attachReliability(slots: OpenSlot[]): Promise<OpenSlot[]> {
+  const ids = [...new Set(slots.map((s) => s.venue.id).filter(Boolean))];
+  if (!ids.length) return slots;
+  const supabase = await createClient();
+  const { data } = await supabase.from("venue_reliability").select("venue_id, late_cancellations, gigs_hosted").in("venue_id", ids);
+  const byVenue = new Map((data ?? []).map((r: { venue_id: string; late_cancellations: number; gigs_hosted: number }) => [r.venue_id, r]));
+  return slots.map((s) => {
+    const r = byVenue.get(s.venue.id);
+    return r ? { ...s, venue: { ...s.venue, late_cancellations: r.late_cancellations, gigs_hosted: r.gigs_hosted } } : s;
+  });
+}
+
+
+/** Open, not-yet-started gigs. Urgent first, then boosted, then soonest. */
 export async function getOpenSlots(musicianId: string, filters: DiscoverFilters, limit = 60): Promise<OpenSlot[]> {
   const supabase = await createClient();
   const range = whenRange(filters.when);
 
-  let query = supabase.from("gig_slots").select(SLOT_FIELDS).eq("status", "open").gt("starts_at", range.from);
-  if (range.to) query = query.lt("starts_at", range.to);
-  // A slot with no genre means "any genre", which suits every musician.
-  // `genre` comes from our fixed list (validated by the caller), so it is safe in the filter string.
-  if (filters.genre && filters.genre !== ANY_GENRE) query = query.or(`genre.eq.${filters.genre},genre.is.null`);
-  if (filters.minPayDollars) query = query.gte("pay_cents", filters.minPayDollars * 100);
+  const build = () => {
+    let query = supabase.from("gig_slots").select(SLOT_FIELDS).eq("status", "open").gt("starts_at", range.from);
+    if (range.to) query = query.lt("starts_at", range.to);
+    // A slot with no genre means "any genre", which suits every musician.
+    // `genre` comes from our fixed list (validated by the caller), so it is safe in the filter string.
+    if (filters.genre && filters.genre !== ANY_GENRE) query = query.or(`genre.eq.${filters.genre},genre.is.null`);
+    if (filters.minPayDollars) query = query.gte("pay_cents", filters.minPayDollars * 100);
+    return query;
+  };
 
-  const { data, error } = await query.order("is_urgent", { ascending: false }).order("starts_at").limit(limit);
-  if (error) throw new Error("Could not load gigs.");
-  return attachMyStatus(musicianId, data as unknown as RawSlot[]);
+  // Boosted gigs are fetched on their own so one far in the future can never be cut off by the limit.
+  const [main, boosted] = await Promise.all([
+    build().order("is_urgent", { ascending: false }).order("starts_at").limit(limit),
+    build().gt("boosted_until", new Date().toISOString()).order("starts_at").limit(20),
+  ]);
+  if (main.error || boosted.error) throw new Error("Could not load gigs.");
+
+  const merged = new Map<string, RawSlot>();
+  for (const row of [...(boosted.data as unknown as RawSlot[]), ...(main.data as unknown as RawSlot[])]) merged.set(row.id, row);
+  const sorted = [...merged.values()].sort(
+    (a, b) =>
+      Number(b.is_urgent) - Number(a.is_urgent) ||
+      Number(isBoosted(b.boosted_until)) - Number(isBoosted(a.boosted_until)) ||
+      a.starts_at.localeCompare(b.starts_at),
+  );
+  return attachReliability(await attachMyStatus(musicianId, sorted.slice(0, limit)));
 }
 
 /** The one gig to feature at the top of the feed. */
@@ -144,6 +179,7 @@ type RawBooking = {
   id: string;
   completed_at: string | null;
   cancelled_at: string | null;
+  cancelled_late: boolean;
   agreed_pay_cents: number;
   slot: { id: string; starts_at: string; set_length_min: number; genre: string | null; venue: RawVenue | RawVenue[] | null } | { id: string; starts_at: string; set_length_min: number; genre: string | null; venue: RawVenue | RawVenue[] | null }[];
 };
@@ -152,13 +188,13 @@ export async function getMyBookings(musicianId: string): Promise<MyBooking[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("bookings")
-    .select(`id, completed_at, cancelled_at, agreed_pay_cents, slot:gig_slots!inner(id, starts_at, set_length_min, genre, ${VENUE_EMBED})`)
+    .select(`id, completed_at, cancelled_at, cancelled_late, agreed_pay_cents, slot:gig_slots!inner(id, starts_at, set_length_min, genre, ${VENUE_EMBED})`)
     .eq("musician_id", musicianId);
   if (error) throw new Error("Could not load your bookings.");
   const out: MyBooking[] = [];
   for (const r of data as unknown as RawBooking[]) {
     const s = one(r.slot);
-    if (s) out.push({ id: r.id, completed_at: r.completed_at, cancelled_at: r.cancelled_at, agreed_pay_cents: r.agreed_pay_cents, slot: { id: s.id, starts_at: s.starts_at, set_length_min: s.set_length_min, genre: s.genre, venue: toVenue(s.venue) } });
+    if (s) out.push({ id: r.id, completed_at: r.completed_at, cancelled_at: r.cancelled_at, cancelled_late: r.cancelled_late, agreed_pay_cents: r.agreed_pay_cents, slot: { id: s.id, starts_at: s.starts_at, set_length_min: s.set_length_min, genre: s.genre, venue: toVenue(s.venue) } });
   }
   return out;
 }

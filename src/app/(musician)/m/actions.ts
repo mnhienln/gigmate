@@ -6,6 +6,7 @@ import { getCurrentProfile, homeFor, type CurrentProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { GENRES, NEIGHBORHOODS } from "@/lib/options";
 import { linkLabel } from "@/lib/media";
+import { getMySubscription } from "@/lib/musician/subscription";
 import { valuesFrom, type FormState } from "@/lib/form-state";
 
 /* Every action starts here: look up who is calling, refuse anyone who is not a finished musician. */
@@ -37,6 +38,11 @@ export async function applyToSlot(slotId: string, returnTo: string): Promise<voi
   const profile = await requireMusician();
   const back = safeReturnTo(returnTo);
   if (!idSchema.safeParse(slotId).success) redirect(withParam(back, "apply", "other"));
+
+  // Applying needs an active plan (a free trial counts). Browsing stays free. The database enforces this
+  // too (see 0005_payments.sql); checking here lets us give a clear message instead of a generic refusal.
+  const mine = await getMySubscription(profile.id);
+  if (!mine.active) redirect(withParam(back, "apply", "subscribe"));
 
   const supabase = await createClient();
   const { error } = await supabase.from("applications").insert({ slot_id: slotId, musician_id: profile.id });

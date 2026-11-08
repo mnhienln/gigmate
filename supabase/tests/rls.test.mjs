@@ -18,7 +18,8 @@ const sql =
   readFileSync(process.env.SQL_PATH ?? new URL("../migrations/0001_init.sql", import.meta.url), "utf8") +
   "\n" + migration("0002_storage.sql") +
   "\n" + migration("0003_musician_rules.sql") +
-  "\n" + migration("0004_profiles_media.sql");
+  "\n" + migration("0004_profiles_media.sql") +
+  "\n" + migration("0005_payments.sql");
 
 // --- Supabase stand-ins ------------------------------------------------------
 await db.exec(`
@@ -98,6 +99,14 @@ const mara = await newUser("mara@x.test", "musician", "Mara Quinn");
 const otis = await newUser("otis@x.test", "musician", "Otis Bell");
 const cleo = await newUser("cleo@x.test", "musician", "Cleo Park");
 const front = await newUser("front@x.test", "venue", "Front Room Bar");
+/** Give a musician an active paid plan (done by the server in real life, never by the browser). */
+async function subscribe(uid, status = "active", days = 30) {
+  await db.query(
+    "insert into subscriptions (musician_id, plan, status, current_period_end) values ($1, 'monthly', $2, now() + ($3 || ' days')::interval) on conflict (musician_id) do update set status = $2, current_period_end = now() + ($3 || ' days')::interval",
+    [uid, status, String(days)],
+  );
+}
+for (const uid of [mara, otis, cleo]) await subscribe(uid);
 const hops = await newUser("hops@x.test", "venue", "Hops Hall");
 
 console.log("\nSignup trigger");
@@ -279,6 +288,8 @@ await test("subscriptions and boosts cannot be written by users", async () => {
 console.log("\nPhase 3 rules: withdrawing and late applications");
 const dana = await newUser("dana@x.test", "musician", "Dana Fox");
 const eli = await newUser("eli@x.test", "musician", "Eli Reed");
+await subscribe(dana);
+await subscribe(eli);
 let slot2;
 await test("setup: a second future slot", async () => {
   slot2 = (await as(front,
@@ -367,6 +378,83 @@ await test("the videos bucket exists with a size limit and video types only", as
   const b = (await db.query("select file_size_limit, allowed_mime_types from storage.buckets where id = 'videos'")).rows[0];
   assert.equal(Number(b.file_size_limit), 41943040);
   assert.deepEqual(b.allowed_mime_types, ["video/mp4", "video/quicktime", "video/webm"]);
+});
+
+console.log("\nPhase 4: subscriptions, cancellations and reliability");
+const openSlot = async (days, venueId = front) =>
+  (await db.query("insert into gig_slots (venue_id, starts_at, set_length_min, pay_cents) values ($1, now() + ($2 || ' hours')::interval, 90, 10000) returning id", [venueId, String(days * 24)])).rows[0].id;
+const apply = (uid, slot) => as(uid, "insert into applications (slot_id, musician_id) values ($1, $2)", [slot, uid]);
+
+await test("a musician with no subscription cannot apply", async () => {
+  const nina = await newUser("nina@x.test", "musician", "Nina Cole");
+  await fails(apply(nina, await openSlot(5)), /row-level security/, "no plan");
+});
+await test("a free trial counts as a plan", async () => {
+  const tess = await newUser("tess@x.test", "musician", "Tess Ward");
+  await subscribe(tess, "trialing", 7);
+  await apply(tess, await openSlot(5));
+});
+await test("an expired, past due or cancelled plan cannot apply", async () => {
+  for (const [name, status, days] of [["expired", "active", -1], ["pastdue", "past_due", 20], ["cancelled", "canceled", 20]]) {
+    const u = await newUser(`${name}@x.test`, "musician", name);
+    await subscribe(u, status, days);
+    await fails(apply(u, await openSlot(5)), /row-level security/, name);
+  }
+});
+await test("users cannot give themselves a plan or edit one", async () => {
+  const sam = await newUser("sam@x.test", "musician", "Sam Hart");
+  await fails(as(sam, "insert into subscriptions (musician_id, plan, status, current_period_end) values ($1, 'yearly', 'active', now() + interval '1 year')", [sam]), /row-level security/, "self plan");
+  await subscribe(sam, "canceled", 20);
+  assert.equal((await as(sam, "update subscriptions set status = 'active' where musician_id = $1 returning musician_id", [sam])).rows.length, 0);
+});
+
+const mkBooking = async (musician, days) => {
+  const slot = await openSlot(days);
+  await db.query("update gig_slots set status = 'booked' where id = $1", [slot]);
+  const b = await db.query("insert into bookings (slot_id, musician_id, venue_id, agreed_pay_cents) values ($1, $2, $3, 10000) returning id", [slot, musician, front]);
+  return { slot, booking: b.rows[0].id };
+};
+await test("a venue can cancel for free when the gig is 48 hours or more away", async () => {
+  const { slot, booking } = await mkBooking(mara, 10);
+  await as(front, "select cancel_booking($1)", [booking]);
+  const row = (await db.query("select cancelled_at, cancelled_late, cancel_fee_cents from bookings where id = $1", [booking])).rows[0];
+  assert.ok(row.cancelled_at); assert.equal(row.cancelled_late, false); assert.equal(row.cancel_fee_cents, 0);
+  assert.equal((await db.query("select status from gig_slots where id = $1", [slot])).rows[0].status, "cancelled");
+});
+await test("only the venue on the booking can cancel it", async () => {
+  const { booking } = await mkBooking(mara, 10);
+  await fails(as(mara, "select cancel_booking($1)", [booking]), /Only the venue/, "musician cancels");
+  await fails(as(hops, "select cancel_booking($1)", [booking]), /Only the venue/, "other venue cancels");
+});
+await test("inside 48 hours the free path is refused (the fee cannot be dodged)", async () => {
+  const { booking } = await mkBooking(mara, 1);
+  await fails(as(front, "select cancel_booking($1)", [booking]), /48 hours/, "late free cancel");
+  assert.equal((await db.query("select cancelled_at from bookings where id = $1", [booking])).rows[0].cancelled_at, null);
+});
+await test("users cannot call the late-cancellation function, only the server can", async () => {
+  const { booking } = await mkBooking(mara, 1);
+  await fails(as(front, "select apply_late_cancellation($1, 2500)", [booking]), /permission denied/, "venue calls server function");
+  await fails(asAnon("select apply_late_cancellation($1, 2500)", [booking]), /permission denied/, "anon calls server function");
+});
+let lateBooking;
+await test("the server finishes a late cancellation after payment, and repeating it changes nothing", async () => {
+  lateBooking = await mkBooking(mara, 1);
+  await db.query("select apply_late_cancellation($1, 2500)", [lateBooking.booking]);
+  const first = (await db.query("select cancelled_at, cancelled_late, cancel_fee_cents from bookings where id = $1", [lateBooking.booking])).rows[0];
+  assert.equal(first.cancelled_late, true); assert.equal(first.cancel_fee_cents, 2500);
+  assert.equal((await db.query("select status from gig_slots where id = $1", [lateBooking.slot])).rows[0].status, "cancelled");
+  await db.query("select apply_late_cancellation($1, 2500)", [lateBooking.booking]);
+  const second = (await db.query("select cancelled_at from bookings where id = $1", [lateBooking.booking])).rows[0];
+  assert.equal(String(second.cancelled_at), String(first.cancelled_at));
+});
+await test("a finished gig cannot be cancelled", async () => {
+  await fails(as(front, "select cancel_booking($1)", [booking]), /already happened/, "cancel finished");
+});
+await test("late cancellations are public numbers; bookings stay private", async () => {
+  const r = (await as(cleo, "select late_cancellations, gigs_hosted from venue_reliability where venue_id = $1", [front])).rows[0];
+  assert.equal(r.late_cancellations, 1);
+  assert.ok(r.gigs_hosted >= 1);
+  assert.equal((await as(cleo, "select id from bookings")).rows.length, 0);
 });
 
 console.log(`\n${passed} passed, ${failures.length} failed`);

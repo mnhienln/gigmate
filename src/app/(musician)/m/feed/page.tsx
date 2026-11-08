@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { formatMonthDay, todayLocal, weekStartOf } from "@/lib/dates";
 import { APPLY_MESSAGES } from "@/lib/musician/messages";
+import { getMySubscription } from "@/lib/musician/subscription";
 import { getFeaturedSlot, getPendingCount, getRecentPosts } from "@/lib/musician/data";
 import { AppHeader } from "@/components/musician/app-header";
 import { FeedSkeleton } from "@/components/musician/feed-skeleton";
@@ -20,7 +21,7 @@ export const metadata = { title: "Feed | GigMate" };
 async function FeedContent({ searchParams }: { searchParams: PageProps<"/m/feed">["searchParams"] }) {
   const profile = await requireRole("musician");
   const sp = await searchParams;
-  const [featured, pending, posts] = await Promise.all([getFeaturedSlot(profile.id), getPendingCount(profile.id), getRecentPosts()]);
+  const [featured, pending, posts, plan] = await Promise.all([getFeaturedSlot(profile.id), getPendingCount(profile.id), getRecentPosts(), getMySubscription(profile.id)]);
   const result = typeof sp.apply === "string" ? APPLY_MESSAGES[sp.apply] : undefined;
 
   return (
@@ -30,7 +31,7 @@ async function FeedContent({ searchParams }: { searchParams: PageProps<"/m/feed"
         {result && <FormMessage error={result.error} message={result.message} />}
 
         {featured ? (
-          <SlotTicket slot={featured} returnTo="/m/feed" compact={false} />
+          <SlotTicket slot={featured} returnTo="/m/feed" compact={false} canApply={plan.active} />
         ) : (
           <section className="rounded-2xl border-2 border-dashed border-ink p-5">
             <h2 className="font-display text-3xl uppercase leading-none">No open gigs right now</h2>

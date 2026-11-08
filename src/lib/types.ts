@@ -50,6 +50,9 @@ export type VenueSummary = {
   venue_type: string | null;
   has_pa: boolean;
   address: string | null;
+  /** Public reliability numbers. null until the venue has any booking history. */
+  late_cancellations: number | null;
+  gigs_hosted: number | null;
 };
 
 export type OpenSlot = {
@@ -78,6 +81,7 @@ export type MyBooking = {
   id: string;
   completed_at: string | null;
   cancelled_at: string | null;
+  cancelled_late: boolean;
   agreed_pay_cents: number;
   slot: { id: string; starts_at: string; set_length_min: number; genre: string | null; venue: VenueSummary };
 };

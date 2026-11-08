@@ -3,10 +3,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { requireRole } from "@/lib/auth";
-import { dayOf, formatDay, formatTimeRange } from "@/lib/dates";
+import { dayOf, formatDay, formatTime, formatTimeRange } from "@/lib/dates";
 import { formatUsd } from "@/lib/money";
+import { BOOST, CANCEL, isBoosted, isLateCancellation } from "@/lib/pricing";
 import { getSlot } from "@/lib/venue/data";
 import { cancelSlot, markGigHappened } from "@/app/(venue)/v/actions";
+import { cancelGig, startBoost } from "@/app/(venue)/v/payments-actions";
 import { FormMessage } from "@/components/ui/form-message";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -23,6 +25,8 @@ async function Content({ params, searchParams }: { params: PageProps<"/v/calenda
   if (!slot) notFound();
 
   const day = dayOf(slot.starts_at);
+  const boostedUntil = isBoosted(slot.boosted_until) ? slot.boosted_until : null;
+  const late = isLateCancellation(slot.starts_at);
 
   return (
     <div className="flex flex-col gap-5 px-5 pt-5">
@@ -30,6 +34,14 @@ async function Content({ params, searchParams }: { params: PageProps<"/v/calenda
         <ChevronLeft size={18} aria-hidden /> Calendar
       </Link>
 
+      {sp.boost === "success" && <FormMessage message="Payment received. Your gig will show first in Discover as soon as Stripe confirms, usually within seconds." />}
+      {sp.boost === "cancelled" && <FormMessage message="No problem. You were not charged." />}
+      {sp.boost === "closed" && <FormMessage error="That gig can no longer be boosted. It is booked, cancelled or already started." />}
+      {sp.boost === "error" && <FormMessage error="We could not open the payment page. You were not charged. Please try again." />}
+      {sp.cancelled === "free" && <FormMessage message="Gig cancelled at no charge. The musician can see it in their bookings." />}
+      {sp.cancelled === "paid" && <FormMessage message="Payment received. We are cancelling the gig now, which takes a few seconds. Refresh to see it." />}
+      {sp.cancelled === "no" && <FormMessage message="No problem. Your gig is still booked and you were not charged." />}
+      {sp.cancelled === "error" && <FormMessage error="We could not cancel that gig. You were not charged. Please try again." />}
       {sp.accepted === "1" && <FormMessage message="Booked. The musician has been confirmed and the other applicants were declined." />}
       {sp.error === "complete" && <FormMessage error="We could not mark that gig as finished. Please try again." />}
 
@@ -70,6 +82,19 @@ async function Content({ params, searchParams }: { params: PageProps<"/v/calenda
             {slot.pending_count > 0 ? `Review ${slot.pending_count} request${slot.pending_count === 1 ? "" : "s"}` : "See requests"}
           </Link>
           {slot.pending_count === 0 && <p className="text-sm text-ink-muted">No applications yet. Musicians nearby can see this slot and apply in one tap.</p>}
+          <section aria-label="Boost this gig" className="flex flex-col gap-3 rounded-2xl border-2 border-gold bg-panel p-4">
+            <p className="font-display text-2xl uppercase leading-none">{boostedUntil ? "Boosted" : "Boost this gig"}</p>
+            {boostedUntil ? (
+              <p className="text-base">Showing first in Discover until <span className="font-bold">{formatDay(dayOf(boostedUntil))}, {formatTime(boostedUntil)}</span>. You can add another {BOOST.hours} hours.</p>
+            ) : (
+              <p className="text-base">Show this gig at the top of every musician&apos;s Discover for {BOOST.hours} hours, marked Boosted. Good for filling a night fast.</p>
+            )}
+            <form action={startBoost.bind(null, slot.id)}>
+              <SubmitButton variant="outline" pendingText="Opening payment..." label={`Boost this gig for ${formatUsd(BOOST.cents)}`}>
+                {boostedUntil ? "Add" : "Boost for"} {formatUsd(BOOST.cents)}
+              </SubmitButton>
+            </form>
+          </section>
           <details className="rounded-2xl border-2 border-line bg-panel p-4">
             <summary className="flex min-h-11 cursor-pointer items-center font-mono text-[12px] font-bold uppercase tracking-wide text-brick">Cancel this slot</summary>
             <p className="mb-3 text-base">This removes the slot and any applications on it. This cannot be undone.</p>
@@ -89,6 +114,21 @@ async function Content({ params, searchParams }: { params: PageProps<"/v/calenda
             <SubmitButton pendingText="Saving...">Gig happened</SubmitButton>
           </form>
           <p className="text-sm text-ink-muted">Tap this after the show. It lets you and the act leave reviews.</p>
+          <details className="rounded-2xl border-2 border-line p-4">
+            <summary className="flex min-h-11 cursor-pointer items-center font-mono text-[12px] font-bold uppercase tracking-wide text-brick">Cancel this gig</summary>
+            {late ? (
+              <p className="mb-3 text-base">
+                This gig starts in under {CANCEL.windowHours} hours, so cancelling costs <span className="font-bold">{formatUsd(CANCEL.feeCents)}</span>. It is also counted on your public profile as a late cancellation.
+              </p>
+            ) : (
+              <p className="mb-3 text-base">Cancelling is free because the gig is {CANCEL.windowHours} hours or more away. {slot.booking.musician_name} will see it in their bookings.</p>
+            )}
+            <form action={cancelGig.bind(null, slot.booking.id)}>
+              <SubmitButton variant="outline" pendingText="Working..." label={late ? `Pay ${formatUsd(CANCEL.feeCents)} and cancel the gig` : "Yes, cancel the gig"}>
+                {late ? `Pay ${formatUsd(CANCEL.feeCents)} and cancel` : "Yes, cancel the gig"}
+              </SubmitButton>
+            </form>
+          </details>
         </section>
       )}
 

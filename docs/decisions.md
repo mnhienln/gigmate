@@ -86,3 +86,19 @@ Tradeoff: the listener leaves the app. Embeds can be added later per site.
 ## 22. Tests check what the visitor sees, not only HTTP codes
 A page that streams has already sent status 200 when it discovers an id does not exist, so "not found" pages come back as 200 with the right words on screen. Missing files in Supabase Storage answer HTTP 400 with "not found" inside. The tests assert on the visible result (and "not 200" for files) because that is what users actually experience.
 Tradeoff: a search engine would see a soft 404. This is a logged-in app, so that does not matter here.
+
+## 23. Only a signed message from Stripe can grant anything
+Coming back from Stripe's page proves nothing: anyone can type the success address. So the plan, the boost and the late cancellation are granted only by the webhook, after it checks Stripe's signature. The success page just waits and re-checks. The tests prove it: starting checkout, or visiting the success address, changes nothing.
+Tradeoff: a few seconds of "activating your plan" after paying, and a public webhook address to keep working.
+
+## 24. Every webhook step is safe to run twice
+Stripe may deliver a message more than once or out of order. Plans are saved with an upsert, a boost is recorded under a unique Checkout Session id so a repeat adds nothing, and the late-cancellation function does nothing if the gig is already cancelled.
+Tradeoff: slightly more careful code than "just do it".
+
+## 25. The 48-hour rule lives in the database, and the late path is server-only
+A venue can only cancel for free if the real start time is 48 hours or more away, and that is checked in SQL, so calling the database directly cannot dodge the fee. The late path is a separate function that signed-in users are not allowed to call; only the server, after Stripe confirms the $25, can.
+Tradeoff: two functions instead of one, but the money rule cannot be bypassed from a browser.
+
+## 26. Prices and money rules sit in one file
+`src/lib/pricing.ts` holds the plans, trial length, boost price, cancellation window and fee, plus the helpers that decide "late" and "boosted". The screens, the Stripe setup script and the tests all read it, so they cannot disagree, and the 48-hour edge is unit-tested.
+Tradeoff: changing a price also means re-running the Stripe setup so Stripe has the new amount.
