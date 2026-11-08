@@ -159,7 +159,9 @@ async function overflowAndTaps(p, name) {
     ok('a booked gig cannot be cancelled from the page', (await (async () => { await p.goto(base + '/v/calendar/' + gigSlot); return p.locator('text=Cancel this slot').count(); })()) === 0);
 
     console.log('Venue profile');
-    await p.goto(base + '/v/profile'); await p.waitForSelector('text=Details');
+    await p.goto(base + '/v/profile'); await p.waitForSelector('h1:has-text("Front Room Bar")');
+    ok('the venue profile is read-only until Edit profile is tapped', await p.locator('input[name=capacity]').count() === 0 && await p.locator('a:has-text("Edit profile")').count() === 1);
+    await p.click('a:has-text("Edit profile")'); await p.waitForURL('**/v/profile/edit', { timeout: 20000 }); await p.waitForSelector('text=Details');
     await p.screenshot({ path: S + '/v-profile.png', fullPage: true });
     await overflowAndTaps(p, 'venue profile');
     await p.fill('input[name=capacity]', '130'); await p.click('button:has-text("Save changes")'); await p.waitForSelector('form p[role=status]', { timeout: 15000 });

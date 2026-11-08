@@ -1,5 +1,5 @@
-// End-to-end test for the Instagram-style profile: photo and video posts, shop, profile photo,
-// the music buttons, and a venue's read-only view. Runs in a real browser at 375px.
+// End-to-end test for the Instagram-style MUSICIAN profile: photo and video posts, profile photo,
+// the music buttons, no shop (shops belong to venues, see venue-profile-flow.cjs), and a venue's read-only view. Runs in a real browser at 375px.
 //
 // NEEDS migration 0004_profiles_media.sql applied to the project.
 //
@@ -9,7 +9,7 @@
 // Against the live site: BASE=https://gigmate-delta.vercel.app REAL_KEYS=1 (storage rules then run for real).
 //
 // It makes its own test media with ffmpeg, uses the demo musician (Mara Quinn) and the demo venue,
-// and removes every post, product, photo and file it created.
+// and removes every post, photo and file it created.
 const { chromium } = require('playwright');
 const { execFileSync } = require('child_process');
 const fs = require('fs'), os = require('os'), path = require('path');
@@ -60,15 +60,15 @@ async function cleanupStorage(userId) {
   try {
     console.log('Setup');
     sb('DELETE', `/rest/v1/posts?author_id=eq.${mara}`);
-    sb('DELETE', `/rest/v1/products?owner_id=eq.${mara}`);
     await p.goto(base + '/login'); await p.click('button[value=musician]'); await p.waitForURL('**/m/feed', { timeout: 30000 });
     ok('signed in as the demo musician', true);
 
     console.log('Empty profile');
     await p.goto(base + '/m/profile'); await p.waitForSelector('h1:has-text("Mara Quinn")');
     ok('empty posts tab explains what to do', /tap the \+ button/i.test(await p.textContent('main')));
-    await p.goto(base + '/m/profile?tab=shop'); await p.waitForSelector('text=Your shop is empty');
-    ok('empty shop suggests the next step', /Edit profile/.test(await p.textContent('main')));
+    ok('the musician profile has exactly two tabs, Posts and Music, and no Shop', await p.locator('nav[aria-label="Profile sections"] a').count() === 2 && !/Shop/.test(await p.textContent('nav[aria-label="Profile sections"]')));
+    await p.goto(base + '/m/profile?tab=shop'); await p.waitForSelector('h1:has-text("Mara Quinn")');
+    ok('an old ?tab=shop link falls back to Posts instead of a shop', !/shop/i.test(await p.textContent('main')) && await p.locator('nav a[aria-current=page]').first().textContent().then(t => /Posts/.test(t)));
 
     console.log('New post: photo');
     await p.goto(base + '/m/post'); await p.waitForSelector('h1:has-text("New post")');
@@ -120,7 +120,7 @@ async function cleanupStorage(userId) {
     console.log('Feed');
     await p.goto(base + '/m/feed'); await p.waitForSelector('text=From the scene');
     await p.waitForSelector('article img[src*="/storage/v1/object/public/photos/"]', { timeout: 15000 });
-    ok('the new photo and video show up in the scene feed', await p.locator('article video[src*="/storage/v1/object/public/videos/"]').count() === 1);
+    ok('the new photo and video show up in the scene feed (look at Mara\'s own post, venues post media too)', await p.locator('article:has-text("Two seconds of the opener") video[src*="/storage/v1/object/public/videos/"]').count() === 1 && await p.locator('article:has-text("Soundcheck at golden hour") img[src*="/storage/v1/object/public/photos/"]').count() >= 1);
     await p.screenshot({ path: S + '/p-feed.png', fullPage: true });
     await overflowAndTaps(p, 'feed with media');
 
@@ -133,26 +133,11 @@ async function cleanupStorage(userId) {
     await p.goto(base + '/m/profile'); await p.waitForSelector('header img[alt$="profile photo"]');
     ok('the header shows the photo instead of initials', true);
 
-    console.log('Shop');
+    console.log('Edit page');
     await p.goto(base + '/m/profile/edit'); await p.waitForSelector('h1:has-text("Edit profile")');
     await p.screenshot({ path: S + '/p-edit.png', fullPage: true });
     await overflowAndTaps(p, 'edit profile page');
-    await p.fill('input[name=title]', 'Tour tee'); await p.fill('input[name=price]', '-5'); await p.click('button:has-text("Add to shop")');
-    await p.waitForSelector('main p[role=alert]'); ok('a negative price is refused plainly', /cannot be negative/.test(await p.textContent('main p[role=alert]')), await p.textContent('main p[role=alert]'));
-    await p.fill('input[name=price]', '25.50'); await p.fill('input[name=buyUrl]', 'javascript:alert(1)'); await p.click('button:has-text("Add to shop")');
-    await p.waitForFunction(() => /https/.test([...document.querySelectorAll('p[role=alert]')].map(e => e.textContent).join(' ')), null, { timeout: 15000 });
-    ok('a javascript: buy link is refused', true);
-    await p.fill('input[name=buyUrl]', 'https://shop.example.com/tee'); await p.fill('textarea[name=description]', 'Soft cotton, sizes S to XL');
-    await p.setInputFiles('#f-photo', f('photo.png', 'image/png')); await p.click('button:has-text("Add to shop")');
-    await p.waitForSelector('text=Added to your shop', { timeout: 60000 });
-    await p.fill('input[name=title]', 'Sticker pack'); await p.fill('input[name=price]', '4'); await p.click('button:has-text("Add to shop")');
-    await p.waitForFunction(() => document.querySelectorAll('main section[aria-label="Shop"] ul li').length === 2, null, { timeout: 30000 });
-    const prods = sb('GET', `/rest/v1/products?owner_id=eq.${mara}&select=title,price_cents,buy_url,photo_path&order=created_at`);
-    ok('products saved with prices in cents', prods.length === 2 && prods[0].price_cents === 2550 && prods[1].price_cents === 400 && prods[0].photo_path.startsWith(mara + '/'), JSON.stringify(prods));
-    await p.goto(base + '/m/profile?tab=shop'); await p.waitForSelector('text=Tour tee');
-    ok('shop shows price, a Buy link for the first item and "Ask at the show" for the second', /\$25\.50/.test(await p.textContent('main')) && await p.locator('a[aria-label="Buy Tour tee"][href="https://shop.example.com/tee"]').count() === 1 && /Ask at the show/.test(await p.textContent('main')));
-    await p.screenshot({ path: S + '/p-shop.png', fullPage: true });
-    await overflowAndTaps(p, 'shop tab');
+    ok('the musician edit page has no Shop section and no add-to-shop form', await p.locator('section[aria-label="Shop"]').count() === 0 && await p.locator('button:has-text("Add to shop")').count() === 0);
 
     console.log('Venue view');
     const vctx = await b.newContext({ viewport: { width: 375, height: 812 } });
@@ -162,8 +147,9 @@ async function cleanupStorage(userId) {
     ok('a venue sees the full profile with no edit controls', await v.locator('a:has-text("Edit profile")').count() === 0 && await v.locator('input').count() === 0 && await v.locator('main ul li button[aria-label^="Open"]').count() === 2);
     await v.screenshot({ path: S + '/p-venue-view.png', fullPage: true });
     await overflowAndTaps(v, 'venue view of a musician');
-    await v.goto(base + '/v/musicians/' + mara + '?tab=shop'); await v.waitForSelector('text=Tour tee');
-    ok('the venue can open the shop tab and use a Buy link', await v.locator('a[aria-label="Buy Tour tee"]').count() === 1);
+    ok('the venue view of a musician has no Shop tab either', !/Shop/.test(await v.textContent('nav[aria-label="Profile sections"]')));
+    await v.goto(base + '/v/musicians/' + mara + '?tab=music'); await v.waitForSelector('nav[aria-label="Profile sections"]');
+    ok('the venue can open the Music tab', await v.locator('nav a[aria-current=page]').first().textContent().then(t => /Music/.test(t)));
     // The page streams, so the HTTP status is already 200 when notFound() runs; what matters is what the visitor sees.
     await v.goto(base + '/v/musicians/' + venue); await v.waitForLoadState('networkidle');
     ok('a venue id is not a musician profile (shows "not found")', /could not be found/.test(await v.innerText('body')));
@@ -189,11 +175,6 @@ async function cleanupStorage(userId) {
     await li.locator('summary:has-text("Delete")').click(); await li.locator('button:has-text("Yes, delete")').click();
     await p.waitForURL('**/m/profile/edit?removed=post', { timeout: 30000 });
     ok('deleting a post removes the row and its file', mine().length === 1 && gone(purl), `${mine().length} ${status(purl)}`);
-    const pli = p.locator('section[aria-label="Shop"] ul li', { hasText: 'Tour tee' });
-    const prodPhoto = prods[0].photo_path;
-    await pli.locator('summary:has-text("Remove")').click(); await pli.locator('button:has-text("Yes, remove")').click();
-    await p.waitForURL('**/m/profile/edit?removed=product', { timeout: 30000 });
-    ok('removing an item deletes the row and its photo', sb('GET', `/rest/v1/products?owner_id=eq.${mara}&select=id`).length === 1 && gone(storageUrl('photos', prodPhoto)));
   } catch (e) {
     fail++; console.log('  FAIL script error: ' + String(e).split('\n')[0]); console.log('  at url:', p.url());
     await p.screenshot({ path: S + '/p-error.png', fullPage: true }).catch(() => {});
@@ -207,7 +188,7 @@ async function cleanupStorage(userId) {
     sb('PATCH', `/rest/v1/musician_profiles?profile_id=eq.${mara}`, { media_links: origLinks });
     await cleanupStorage(mara);
     fs.rmSync(dir, { recursive: true, force: true });
-    console.log('  removed test posts, products, photos and files; restored the demo musician');
+    console.log('  removed test posts, photos and files; restored the demo musician');
     console.log('page errors:', JSON.stringify(errs));
     console.log(`\n${pass} passed, ${fail} failed`);
     await b.close(); process.exit(fail ? 1 : 0);

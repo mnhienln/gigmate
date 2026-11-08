@@ -130,7 +130,8 @@ console.log("Gigs and posts");
 // Only refresh FUTURE open gigs. Past gigs, bookings and reviews (from seed-musicians.mjs) stay put.
 const del1 = await admin.from("gig_slots").delete().in("venue_id", venueIds).eq("status", "open").gt("starts_at", new Date().toISOString());
 if (del1.error) throw del1.error;
-const del2 = await admin.from("posts").delete().in("author_id", venueIds);
+// Only the text announcements are replaced. Photos and videos (seed:venues) are kept.
+const del2 = await admin.from("posts").delete().in("author_id", venueIds).is("media_path", null);
 if (del2.error) throw del2.error;
 
 const today = todayLocal();

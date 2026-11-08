@@ -2,14 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState, type FormEvent } from "react";
-import { createProduct } from "@/app/(musician)/m/media-actions";
+import { createProduct } from "@/lib/profile/media-actions";
 import { Field, TextArea } from "@/components/ui/field";
 import { FormMessage } from "@/components/ui/form-message";
 import { MediaError, newObjectPath, prepareImage, removeObjects, uploadObject } from "@/lib/media-client";
 import { PHOTOS } from "@/lib/storage";
 
 /* Add a shop item: name, price, optional photo, description and buy link.
-   GigMate shows the item; the Buy button goes to the band's own store. */
+   GigMate shows the item; the Buy button goes to the venue's own store. */
 export function ProductForm({ userId }: { userId: string }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
@@ -66,7 +66,7 @@ export function ProductForm({ userId }: { userId: string }) {
         />
       </div>
       <TextArea label="Description" name="description" maxLength={300} hint="Optional. Sizes, colors, pressing details." />
-      <Field label="Buy link" name="buyUrl" type="url" inputMode="url" placeholder="https://" hint="Optional. Your Bandcamp, Shopify or payment page. With no link, it says 'Ask at the show'." />
+      <Field label="Buy link" name="buyUrl" type="url" inputMode="url" placeholder="https://" hint="Optional. Your Shopify, Square or payment page. With no link, it says 'Ask at the bar'." />
       <button
         type="submit"
         disabled={busy}

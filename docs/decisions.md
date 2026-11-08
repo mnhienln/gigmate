@@ -102,3 +102,11 @@ Tradeoff: two functions instead of one, but the money rule cannot be bypassed fr
 ## 26. Prices and money rules sit in one file
 `src/lib/pricing.ts` holds the plans, trial length, boost price, cancellation window and fee, plus the helpers that decide "late" and "boosted". The screens, the Stripe setup script and the tests all read it, so they cannot disagree, and the 48-hour edge is unit-tested.
 Tradeoff: changing a price also means re-running the Stripe setup so Stripe has the new amount.
+
+## 27. The shop belongs to venues, and the database says so
+A venue sells bar merch (shirts, glasses, gift cards) and a musician's profile is about their music, photos and videos. So only a venue can add shop items: the insert rule in migration 0006 checks the role, the upload actions check it again, and the musician profile simply has no Shop tab. The old band shop items are deleted by the same migration.
+Tradeoff: a band can no longer show merch inside GigMate. They can still link their own store from the Music tab.
+
+## 28. One profile layout, two sets of tabs
+Musicians and venues share the same Instagram-style pieces (avatar, header, photo and video grid, post composer, edit sections). Only the tab list differs: Posts and Music for musicians, Photos, Videos and Shop for venues. The tabs are plain links (`?tab=videos`), so each view has its own address and works without JavaScript.
+Tradeoff: the shared pieces take a little more setup than two copies would, but a fix to the grid or the composer now lands in both apps at once.

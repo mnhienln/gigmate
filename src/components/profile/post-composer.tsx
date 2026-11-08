@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
-import { createPost } from "@/app/(musician)/m/media-actions";
+import { createPost } from "@/lib/profile/media-actions";
 import { TextArea } from "@/components/ui/field";
 import { FormMessage } from "@/components/ui/form-message";
 import { MediaError, newObjectPath, prepareImage, prepareVideo, removeObjects, uploadObject } from "@/lib/media-client";
@@ -14,7 +14,7 @@ import { PHOTOS, VIDEOS } from "@/lib/storage";
   createPost() records it. If saving fails after the upload, the files are removed
   so nothing is left orphaned.
 */
-export function PostComposer({ userId }: { userId: string }) {
+export function PostComposer({ userId, doneBase, imageTab, videoTab }: { userId: string; doneBase: string; imageTab: string; videoTab: string }) {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -57,7 +57,7 @@ export function PostComposer({ userId }: { userId: string }) {
       }
       const result = await createPost(input);
       if (result.error) throw new MediaError(result.error);
-      router.push("/m/profile?tab=posts&posted=1");
+      router.push(`${doneBase}?tab=${input.mediaType === "video" ? videoTab : imageTab}&posted=1`);
       router.refresh();
     } catch (err) {
       await Promise.all(uploaded.map((u) => removeObjects(u.bucket, [u.path])));

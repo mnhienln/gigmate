@@ -19,7 +19,8 @@ const sql =
   "\n" + migration("0002_storage.sql") +
   "\n" + migration("0003_musician_rules.sql") +
   "\n" + migration("0004_profiles_media.sql") +
-  "\n" + migration("0005_payments.sql");
+  "\n" + migration("0005_payments.sql") +
+  "\n" + migration("0006_venue_shop.sql");
 
 // --- Supabase stand-ins ------------------------------------------------------
 await db.exec(`
@@ -340,21 +341,32 @@ await test("only the author can delete a post", async () => {
   assert.equal((await as(ivy, "delete from posts where id = $1 returning id", [mine])).rows.length, 0);
   assert.equal((await as(gus, "delete from posts where id = $1 returning id", [mine])).rows.length, 1);
 });
-await test("a musician can add a product; a venue cannot", async () => {
-  await as(gus, "insert into products (owner_id, title, price_cents, buy_url, photo_path) values ($1, 'Tour tee', 2500, 'https://shop.example.com/tee', $2)", [gus, file(gus)]);
-  await fails(as(front, "insert into products (owner_id, title, price_cents) values ($1, 'Pint glass', 800)", [front]), /row-level security/, "venue product");
+await test("a venue can add a shop item; a musician cannot (the shop belongs to venues)", async () => {
+  await as(front, "insert into products (owner_id, title, price_cents, buy_url, photo_path) values ($1, 'House tee', 2500, 'https://shop.example.com/tee', $2)", [front, file(front)]);
+  await fails(as(gus, "insert into products (owner_id, title, price_cents) values ($1, 'Tour tee', 2500)", [gus]), /row-level security/, "musician product");
 });
 await test("product rules: owner only, https link only, no negative price, own photo only", async () => {
-  await fails(as(ivy, "insert into products (owner_id, title, price_cents) values ($1, 'Fake', 100)", [gus]), /row-level security/, "product as someone else");
-  await fails(as(gus, "insert into products (owner_id, title, price_cents, buy_url) values ($1, 'Bad', 100, 'javascript:alert(1)')", [gus]), /check constraint/, "javascript link");
-  await fails(as(gus, "insert into products (owner_id, title, price_cents) values ($1, 'Neg', -5)", [gus]), /check constraint/, "negative price");
-  await fails(as(gus, "insert into products (owner_id, title, price_cents, photo_path) values ($1, 'Steal', 100, $2)", [gus, file(ivy)]), /check constraint/, "foreign product photo");
+  await fails(as(hops, "insert into products (owner_id, title, price_cents) values ($1, 'Fake', 100)", [front]), /row-level security/, "product as someone else");
+  await fails(as(front, "insert into products (owner_id, title, price_cents, buy_url) values ($1, 'Bad', 100, 'javascript:alert(1)')", [front]), /check constraint/, "javascript link");
+  await fails(as(front, "insert into products (owner_id, title, price_cents) values ($1, 'Neg', -5)", [front]), /check constraint/, "negative price");
+  await fails(as(front, "insert into products (owner_id, title, price_cents, photo_path) values ($1, 'Steal', 100, $2)", [front, file(hops)]), /check constraint/, "foreign product photo");
 });
 await test("everyone signed in can see products; only the owner can edit or delete", async () => {
-  assert.equal((await as(ivy, "select id from products where owner_id = $1", [gus])).rows.length, 1);
-  assert.equal((await as(ivy, "update products set price_cents = 1 where owner_id = $1 returning id", [gus])).rows.length, 0);
-  assert.equal((await as(ivy, "delete from products where owner_id = $1 returning id", [gus])).rows.length, 0);
-  assert.equal((await as(gus, "update products set price_cents = 3000 where owner_id = $1 returning id", [gus])).rows.length, 1);
+  assert.equal((await as(ivy, "select id from products where owner_id = $1", [front])).rows.length, 1);
+  assert.equal((await as(hops, "update products set price_cents = 1 where owner_id = $1 returning id", [front])).rows.length, 0);
+  assert.equal((await as(hops, "delete from products where owner_id = $1 returning id", [front])).rows.length, 0);
+  assert.equal((await as(front, "update products set price_cents = 3000 where owner_id = $1 returning id", [front])).rows.length, 1);
+});
+await test("a venue can post a photo or video too, and a musician cannot post as a venue", async () => {
+  await as(front, "insert into posts (author_id, body, media_path, media_type) values ($1, 'Patio is open', $2, 'image')", [front, file(front)]);
+  await fails(as(gus, "insert into posts (author_id, body, media_path, media_type) values ($1, 'x', $2, 'image')", [front, file(front)]), /row-level security/, "post as a venue");
+});
+await test("running 0006 removes musicians' old shop items, keeps venue items, and is safe to repeat", async () => {
+  await db.query("insert into products (owner_id, title, price_cents) values ($1, 'Old band tee', 2000)", [gus]);
+  await db.exec(migration("0006_venue_shop.sql"));
+  await db.exec(migration("0006_venue_shop.sql"));
+  assert.equal((await db.query("select id from products where owner_id = $1", [gus])).rows.length, 0);
+  assert.equal((await db.query("select id from products where owner_id = $1", [front])).rows.length, 1);
 });
 await test("listen links are capped at 8", async () => {
   const nine = JSON.stringify(Array.from({ length: 9 }, (_, i) => ({ label: "L" + i, url: "https://x.test/" + i })));

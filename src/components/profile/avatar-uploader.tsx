@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { setAvatar } from "@/app/(musician)/m/media-actions";
+import { setAvatar } from "@/lib/profile/media-actions";
 import { FormMessage } from "@/components/ui/form-message";
 import { MediaError, newObjectPath, prepareImage, uploadObject } from "@/lib/media-client";
 import { PHOTOS } from "@/lib/storage";

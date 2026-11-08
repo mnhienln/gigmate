@@ -1,22 +1,31 @@
 import Link from "next/link";
-import type { ProfileView } from "@/lib/types";
+import type { ProfileView, VenueView } from "@/lib/types";
 
-export type ProfileTab = "posts" | "music" | "shop";
+export type TabItem = { id: string; label: string; count: number };
 
-export function parseTab(v: unknown): ProfileTab {
-  return v === "music" || v === "shop" ? v : "posts";
-}
+/* Musician: Posts | Music. Venue: Photos | Videos | Shop. The musician profile has NO shop. */
+export type MusicianTab = "posts" | "music";
+export type VenueTab = "photos" | "videos" | "shop";
 
-/* Posts | Music | Shop, as links (?tab=music) so each view is a real address:
-   no JavaScript needed, back button works, and a venue can be sent straight to the Shop tab. */
-export function ProfileTabs({ basePath, tab, view }: { basePath: string; tab: ProfileTab; view: ProfileView }) {
-  const items: { id: ProfileTab; label: string; count: number }[] = [
-    { id: "posts", label: "Posts", count: view.posts.length },
-    { id: "music", label: "Music", count: view.links.length },
-    { id: "shop", label: "Shop", count: view.products.length },
-  ];
+export const parseMusicianTab = (v: unknown): MusicianTab => (v === "music" ? "music" : "posts");
+export const parseVenueTab = (v: unknown): VenueTab => (v === "videos" || v === "shop" ? v : "photos");
+
+export const musicianTabs = (view: ProfileView): TabItem[] => [
+  { id: "posts", label: "Posts", count: view.posts.length },
+  { id: "music", label: "Music", count: view.links.length },
+];
+
+export const venueTabs = (view: VenueView): TabItem[] => [
+  { id: "photos", label: "Photos", count: view.posts.filter((p) => p.media_type === "image").length },
+  { id: "videos", label: "Videos", count: view.posts.filter((p) => p.media_type === "video").length },
+  { id: "shop", label: "Shop", count: view.products.length },
+];
+
+/* The tabs are links (?tab=videos), so each view is a real address: no JavaScript needed,
+   the back button works, and someone can be sent straight to a tab. */
+export function ProfileTabs({ basePath, tab, items }: { basePath: string; tab: string; items: TabItem[] }) {
   return (
-    <nav aria-label="Profile sections" className="mt-5 grid grid-cols-3 border-y-2 border-ink">
+    <nav aria-label="Profile sections" className={`mt-5 grid border-y-2 border-ink ${items.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
       {items.map((t) => (
         <Link
           key={t.id}

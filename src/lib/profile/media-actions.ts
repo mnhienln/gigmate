@@ -7,8 +7,8 @@ import { createClient } from "@/lib/supabase/server";
 import { PHOTOS, VIDEOS } from "@/lib/storage";
 
 /*
-  Actions for the Instagram-style profile: posts, shop items and the profile photo.
-  The files themselves are uploaded straight from the phone to storage (see
+  Actions for the Instagram-style profiles: posts and the profile photo (musicians AND venues),
+  and shop items (venues only). The files themselves are uploaded straight from the phone to storage (see
   media-client.ts). These actions only RECORD them. The browser can send any path,
   so each action re-checks that the path is inside the caller's own folder and has
   the shape we generate. The database repeats the same checks.
@@ -20,12 +20,22 @@ const FAILED = "We could not save that. Please try again in a moment.";
 const MAX_POSTS = 100;
 const MAX_PRODUCTS = 24;
 
-async function requireMusician(): Promise<CurrentProfile> {
+/** Musicians and venues both have a profile with photos and videos. Returns who is calling. */
+async function requireOwner(): Promise<CurrentProfile> {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
-  if (profile.role !== "musician" || !profile.onboarded_at) redirect(homeFor(profile.role));
+  if (!profile.onboarded_at || (profile.role !== "musician" && profile.role !== "venue")) redirect(homeFor(profile.role));
   return profile;
 }
+
+/** The shop belongs to venues. (The database insert rule says the same thing in migration 0006.) */
+async function requireVenue(): Promise<CurrentProfile> {
+  const profile = await requireOwner();
+  if (profile.role !== "venue") redirect(homeFor(profile.role));
+  return profile;
+}
+
+const editPath = (profile: CurrentProfile) => (profile.role === "venue" ? "/v/profile/edit" : "/m/profile/edit");
 
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const pathOf = (ownerId: string, exts: string) => new RegExp(`^${ownerId}/${UUID}\\.(${exts})$`);
@@ -41,7 +51,7 @@ const postSchema = z.object({
 });
 
 export async function createPost(input: z.input<typeof postSchema>): Promise<ActionResult> {
-  const profile = await requireMusician();
+  const profile = await requireOwner();
   const parsed = postSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const d = parsed.data;
@@ -66,8 +76,8 @@ export async function createPost(input: z.input<typeof postSchema>): Promise<Act
 }
 
 export async function deletePost(postId: string): Promise<void> {
-  const profile = await requireMusician();
-  if (!z.uuid().safeParse(postId).success) redirect("/m/profile/edit");
+  const profile = await requireOwner();
+  if (!z.uuid().safeParse(postId).success) redirect(editPath(profile));
 
   const supabase = await createClient();
   const { data: post } = await supabase
@@ -84,7 +94,7 @@ export async function deletePost(postId: string): Promise<void> {
       if (post.poster_path) await supabase.storage.from(PHOTOS).remove([post.poster_path]);
     }
   }
-  redirect("/m/profile/edit?removed=post");
+  redirect(`${editPath(profile)}?removed=post`);
 }
 
 // ---------------------------------------------------------------------------
@@ -104,7 +114,7 @@ const productSchema = z.object({
 });
 
 export async function createProduct(input: z.input<typeof productSchema>): Promise<ActionResult> {
-  const profile = await requireMusician();
+  const profile = await requireVenue();
   const parsed = productSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const d = parsed.data;
@@ -126,8 +136,8 @@ export async function createProduct(input: z.input<typeof productSchema>): Promi
 }
 
 export async function deleteProduct(productId: string): Promise<void> {
-  const profile = await requireMusician();
-  if (!z.uuid().safeParse(productId).success) redirect("/m/profile/edit");
+  const profile = await requireVenue();
+  if (!z.uuid().safeParse(productId).success) redirect("/v/profile/edit");
 
   const supabase = await createClient();
   const { data: product } = await supabase.from("products").select("id, photo_path").eq("id", productId).eq("owner_id", profile.id).maybeSingle();
@@ -135,14 +145,14 @@ export async function deleteProduct(productId: string): Promise<void> {
     const { error } = await supabase.from("products").delete().eq("id", productId).eq("owner_id", profile.id);
     if (!error && product.photo_path) await supabase.storage.from(PHOTOS).remove([product.photo_path]);
   }
-  redirect("/m/profile/edit?removed=product");
+  redirect("/v/profile/edit?removed=product");
 }
 
 // ---------------------------------------------------------------------------
 // Profile photo
 // ---------------------------------------------------------------------------
 export async function setAvatar(path: string): Promise<ActionResult> {
-  const profile = await requireMusician();
+  const profile = await requireOwner();
   if (!pathOf(profile.id, "jpg").test(path)) return { error: FAILED };
 
   const supabase = await createClient();

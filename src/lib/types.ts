@@ -147,5 +147,22 @@ export type ProfileView = {
   gigs_played: number;
   rating: { avg: number; count: number } | null;
   posts: ProfilePost[];
+};
+
+/* A venue's Instagram-style profile: header facts, reliability, photos and videos (posts), and the merch shop. */
+export type VenueView = {
+  id: string;
+  display_name: string;
+  neighborhood: string | null;
+  avatar_path: string | null;
+  venue_type: string | null;
+  capacity: number | null;
+  has_pa: boolean;
+  stage_notes: string | null;
+  address: string | null;
+  gigs_hosted: number;
+  late_cancellations: number;
+  rating: { avg: number; count: number } | null;
+  posts: ProfilePost[];
   products: Product[];
 };

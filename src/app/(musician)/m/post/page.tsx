@@ -18,7 +18,7 @@ async function Content() {
         <h1 className="font-display text-[36px] uppercase leading-none">New post</h1>
         <p className="mt-2 text-base text-ink-muted">Share a photo or a short video. It shows on your profile and in the scene feed that every musician and venue sees.</p>
       </div>
-      <PostComposer userId={profile.id} />
+      <PostComposer userId={profile.id} doneBase="/m/profile" imageTab="posts" videoTab="posts" />
     </div>
   );
 }

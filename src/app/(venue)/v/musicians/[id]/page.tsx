@@ -7,12 +7,12 @@ import { requireRole } from "@/lib/auth";
 import { getProfileView } from "@/lib/profile/data";
 import { ProfileBody } from "@/components/profile/profile-body";
 import { ProfileHeader } from "@/components/profile/profile-header";
-import { ProfileTabs, parseTab } from "@/components/profile/profile-tabs";
+import { ProfileTabs, musicianTabs, parseMusicianTab } from "@/components/profile/profile-tabs";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 
 export const metadata = { title: "Musician | GigMate" };
 
-/* A venue's read-only view of a musician: the same photos, music and shop the musician sees,
+/* A venue's read-only view of a musician: the same photos, videos and music the musician sees,
    with no edit controls. This is what helps a venue pick between two applicants. */
 async function Content({ params, searchParams }: { params: PageProps<"/v/musicians/[id]">["params"]; searchParams: PageProps<"/v/musicians/[id]">["searchParams"] }) {
   await requireRole("venue");
@@ -21,7 +21,7 @@ async function Content({ params, searchParams }: { params: PageProps<"/v/musicia
   if (!z.uuid().safeParse(id).success) notFound();
   const view = await getProfileView(id);
   if (!view) notFound();
-  const tab = parseTab(sp.tab);
+  const tab = parseMusicianTab(sp.tab);
 
   return (
     <div className="flex flex-col gap-5 pb-4">
@@ -32,7 +32,7 @@ async function Content({ params, searchParams }: { params: PageProps<"/v/musicia
       </div>
       <ProfileHeader view={view} />
       <div>
-        <ProfileTabs basePath={`/v/musicians/${id}`} tab={tab} view={view} />
+        <ProfileTabs basePath={`/v/musicians/${id}`} tab={tab} items={musicianTabs(view)} />
         <div className="mt-4">
           <ProfileBody view={view} tab={tab} isOwner={false} />
         </div>

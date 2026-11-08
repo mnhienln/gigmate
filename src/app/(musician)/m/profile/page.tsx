@@ -10,7 +10,7 @@ import { dayOf, formatDay } from "@/lib/dates";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { ProfileBody } from "@/components/profile/profile-body";
 import { ProfileHeader } from "@/components/profile/profile-header";
-import { ProfileTabs, parseTab } from "@/components/profile/profile-tabs";
+import { ProfileTabs, musicianTabs, parseMusicianTab } from "@/components/profile/profile-tabs";
 import { FormMessage } from "@/components/ui/form-message";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 
@@ -23,7 +23,7 @@ async function Content({ searchParams }: { searchParams: PageProps<"/m/profile">
   const sp = await searchParams;
   const [view, plan] = await Promise.all([getProfileView(profile.id), getMySubscription(profile.id)]);
   if (!view) notFound();
-  const tab = parseTab(sp.tab);
+  const tab = parseMusicianTab(sp.tab);
 
   return (
     <div className="flex flex-col gap-5">
@@ -54,7 +54,7 @@ async function Content({ searchParams }: { searchParams: PageProps<"/m/profile">
       )}
 
       <div>
-        <ProfileTabs basePath="/m/profile" tab={tab} view={view} />
+        <ProfileTabs basePath="/m/profile" tab={tab} items={musicianTabs(view)} />
         <div className="mt-4">
           <ProfileBody view={view} tab={tab} isOwner />
         </div>

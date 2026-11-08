@@ -4,7 +4,7 @@ import { formatUsd } from "@/lib/money";
 import type { Product } from "@/lib/types";
 
 /* Merch cards, two across. GigMate only SHOWS the items. The Buy button goes to the
-   band's own store, so we never touch the money. */
+   venue's own store, so we never touch the money. */
 export function ShopGrid({ products, emptyHint }: { products: Product[]; emptyHint: string }) {
   if (products.length === 0) {
     return <p className="mx-5 rounded-2xl border-2 border-dashed border-line p-5 text-base text-ink-muted">{emptyHint}</p>;
@@ -37,7 +37,7 @@ export function ShopGrid({ products, emptyHint }: { products: Product[]; emptyHi
                   Buy <ExternalLink size={14} aria-hidden />
                 </a>
               ) : (
-                <p className="font-mono text-[11px] uppercase tracking-wide text-ink-muted">Ask at the show</p>
+                <p className="font-mono text-[11px] uppercase tracking-wide text-ink-muted">Ask at the bar</p>
               )}
             </div>
           </div>

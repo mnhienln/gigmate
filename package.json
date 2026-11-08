@@ -12,6 +12,7 @@
     "test:unit": "node --test src/lib/dates.test.ts src/lib/pricing.test.ts",
     "seed": "node --env-file=.env.local scripts/seed-demo.mjs",
     "seed:musicians": "node --env-file=.env.local scripts/seed-musicians.mjs",
+    "seed:venues": "node --env-file=.env.local scripts/seed-venue-media.mjs",
     "setup:stripe": "node --env-file=.env.local scripts/setup-stripe.mjs"
   },
   "dependencies": {

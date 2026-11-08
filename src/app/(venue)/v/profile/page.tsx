@@ -1,70 +1,69 @@
 import { Suspense } from "react";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { Pencil } from "lucide-react";
 import { requireRole } from "@/lib/auth";
-import { getVenueProfile } from "@/lib/venue/data";
+import { getVenueProfileView } from "@/lib/profile/data";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { ProfileTabs, parseVenueTab, venueTabs } from "@/components/profile/profile-tabs";
+import { VenueHeader } from "@/components/profile/venue-header";
+import { VenueProfileBody } from "@/components/profile/venue-profile-body";
+import { FormMessage } from "@/components/ui/form-message";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
-import { VenueProfileForm } from "@/components/venue/profile-form";
 
 export const metadata = { title: "Venue profile | GigMate" };
 
-async function Content() {
+/* Read-only by default, like Instagram: nothing here changes by accident.
+   Editing (details, photo, posts, shop) lives behind the "Edit profile" button. */
+async function Content({ searchParams }: { searchParams: PageProps<"/v/profile">["searchParams"] }) {
   const profile = await requireRole("venue");
-  const venue = await getVenueProfile(profile.id);
+  const sp = await searchParams;
+  const view = await getVenueProfileView(profile.id);
+  if (!view) notFound();
+  const tab = parseVenueTab(sp.tab);
 
   return (
-    <div className="flex flex-col gap-6 pt-5">
-      <header className="px-5">
-        <p className="font-mono text-[12px] uppercase tracking-wide text-ink-muted">Your venue</p>
-        <h1 className="font-display text-[34px] uppercase leading-none">{venue.display_name}</h1>
-        <p className="mt-2 text-base text-ink-muted">
-          {[venue.venue_type, venue.neighborhood, venue.capacity ? `${venue.capacity} capacity` : null].filter(Boolean).join(" · ")}
-        </p>
-      </header>
+    <div className="flex flex-col gap-5">
+      <VenueHeader view={view}>
+        <Link
+          href="/v/profile/edit"
+          className="flex min-h-12 items-center justify-center gap-2 rounded-full border-2 border-ink px-6 font-display text-lg uppercase tracking-wide"
+        >
+          <Pencil size={18} aria-hidden /> Edit profile
+        </Link>
+      </VenueHeader>
+
+      {sp.posted === "1" && (
+        <div className="px-5">
+          <FormMessage message="Posted. It is on your profile." />
+        </div>
+      )}
 
       <section aria-label="Reliability" className="mx-5 rounded-2xl border-2 border-line bg-panel p-4">
         <p className="font-mono text-[11px] font-bold uppercase tracking-wide text-ink-muted">Reliability, shown to musicians</p>
         <p className="mt-1 text-base">
-          <span className="font-display text-3xl leading-none">{venue.late_cancellations}</span> late cancellation{venue.late_cancellations === 1 ? "" : "s"}
-          <span className="text-ink-muted"> · {venue.gigs_hosted} gig{venue.gigs_hosted === 1 ? "" : "s"} hosted</span>
+          <span className="font-display text-3xl leading-none">{view.late_cancellations}</span> late cancellation{view.late_cancellations === 1 ? "" : "s"}
+          <span className="text-ink-muted"> · {view.gigs_hosted} gig{view.gigs_hosted === 1 ? "" : "s"} hosted</span>
         </p>
         <p className="mt-1 text-sm text-ink-muted">Cancelling a confirmed gig less than 48 hours ahead adds one here and costs a fee.</p>
       </section>
 
-      <section aria-label="Reviews" className="mx-5 rounded-2xl border-2 border-line bg-panel p-4">
-        <p className="font-mono text-[11px] font-bold uppercase tracking-wide text-ink-muted">Reviews from musicians</p>
-        {venue.rating ? (
-          <p className="mt-1 font-display text-3xl leading-none">
-            ★ {venue.rating.avg.toFixed(1)} <span className="font-sans text-base text-ink-muted">({venue.rating.count})</span>
-          </p>
-        ) : (
-          <p className="mt-1 text-base text-ink-muted">No reviews yet. After your first gig, both you and the act can leave one.</p>
-        )}
-      </section>
-
-      <section aria-label="Edit venue details" className="px-5">
-        <h2 className="mb-3 font-display text-2xl uppercase leading-none">Details</h2>
-        <VenueProfileForm
-          initial={{
-            display_name: venue.display_name,
-            neighborhood: venue.neighborhood,
-            venue_type: venue.venue_type,
-            capacity: venue.capacity,
-            has_pa: venue.has_pa,
-            stage_notes: venue.stage_notes,
-            address: venue.address,
-          }}
-        />
-      </section>
+      <div>
+        <ProfileTabs basePath="/v/profile" tab={tab} items={venueTabs(view)} />
+        <div className="mt-4">
+          <VenueProfileBody view={view} tab={tab} isOwner />
+        </div>
+      </div>
 
       <LogoutButton />
     </div>
   );
 }
 
-export default function VenueProfilePage() {
+export default function VenueProfilePage(props: PageProps<"/v/profile">) {
   return (
     <Suspense fallback={<PageSkeleton />}>
-      <Content />
+      <Content searchParams={props.searchParams} />
     </Suspense>
   );
 }
