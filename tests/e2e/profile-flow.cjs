@@ -20,6 +20,7 @@ const curl = (args) => execFileSync('curl', ['-s', '-m', '60', ...args]).toStrin
 const sb = (method, url, body) => { const a = ['-X', method, H + url, '-H', 'apikey: proxy-injected', '-H', 'Content-Type: application/json', '-H', 'Prefer: return=representation']; if (body) a.push('-d', JSON.stringify(body)); const out = curl(a); try { return JSON.parse(out); } catch { return out; } };
 const head = (url) => curl(['-I', '-o', '/dev/null', '-w', '%{http_code} %{content_type} %{size_download}', url]);
 const status = (url) => curl(['-o', '/dev/null', '-w', '%{http_code}', '-I', url]).trim();
+const gone = (url) => status(url) !== '200'; // Supabase storage answers HTTP 400 ("Object not found") for a missing file
 const storageUrl = (bucket, p) => `${H}/storage/v1/object/public/${bucket}/${p}`;
 
 // --- test media -------------------------------------------------------------------------------
@@ -163,8 +164,11 @@ async function cleanupStorage(userId) {
     await overflowAndTaps(v, 'venue view of a musician');
     await v.goto(base + '/v/musicians/' + mara + '?tab=shop'); await v.waitForSelector('text=Tour tee');
     ok('the venue can open the shop tab and use a Buy link', await v.locator('a[aria-label="Buy Tour tee"]').count() === 1);
-    const r404a = await v.goto(base + '/v/musicians/' + venue); ok('a venue id is not a musician profile (404)', r404a.status() === 404, r404a.status());
-    const r404b = await v.goto(base + '/v/musicians/not-a-real-id'); ok('a malformed id is a 404, not a crash', r404b.status() === 404, r404b.status());
+    // The page streams, so the HTTP status is already 200 when notFound() runs; what matters is what the visitor sees.
+    await v.goto(base + '/v/musicians/' + venue); await v.waitForLoadState('networkidle');
+    ok('a venue id is not a musician profile (shows "not found")', /could not be found/.test(await v.innerText('body')));
+    await v.goto(base + '/v/musicians/not-a-real-id'); await v.waitForLoadState('networkidle');
+    ok('a malformed id shows "not found", not a crash', /could not be found/.test(await v.innerText('body')));
     await v.goto(base + '/m/profile/edit'); await v.waitForLoadState('networkidle');
     ok('a venue cannot open the musician edit page', new URL(v.url()).pathname === '/v/calendar', v.url());
     const slot = sb('POST', '/rest/v1/gig_slots', { venue_id: venue, starts_at: new Date(Date.now() + 3 * 86400000).toISOString(), set_length_min: 90, pay_cents: 12300, genre: 'Folk', is_urgent: false })[0].id;
@@ -184,12 +188,12 @@ async function cleanupStorage(userId) {
     const li = p.locator('section[aria-label="Posts"] ul li', { hasText: 'Soundcheck at golden hour' });
     await li.locator('summary:has-text("Delete")').click(); await li.locator('button:has-text("Yes, delete")').click();
     await p.waitForURL('**/m/profile/edit?removed=post', { timeout: 30000 });
-    ok('deleting a post removes the row and its file', mine().length === 1 && status(purl) === '404', `${mine().length} ${status(purl)}`);
+    ok('deleting a post removes the row and its file', mine().length === 1 && gone(purl), `${mine().length} ${status(purl)}`);
     const pli = p.locator('section[aria-label="Shop"] ul li', { hasText: 'Tour tee' });
     const prodPhoto = prods[0].photo_path;
     await pli.locator('summary:has-text("Remove")').click(); await pli.locator('button:has-text("Yes, remove")').click();
     await p.waitForURL('**/m/profile/edit?removed=product', { timeout: 30000 });
-    ok('removing an item deletes the row and its photo', sb('GET', `/rest/v1/products?owner_id=eq.${mara}&select=id`).length === 1 && status(storageUrl('photos', prodPhoto)) === '404');
+    ok('removing an item deletes the row and its photo', sb('GET', `/rest/v1/products?owner_id=eq.${mara}&select=id`).length === 1 && gone(storageUrl('photos', prodPhoto)));
   } catch (e) {
     fail++; console.log('  FAIL script error: ' + String(e).split('\n')[0]); console.log('  at url:', p.url());
     await p.screenshot({ path: S + '/p-error.png', fullPage: true }).catch(() => {});

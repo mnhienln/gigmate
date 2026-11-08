@@ -82,3 +82,7 @@ Tradeoff: one extra tap to edit.
 ## 21. Streaming sites are buttons, not embedded players
 Spotify, YouTube and SoundCloud each need their own embed code and track URLs, and autoplay rules differ per phone. A button that opens the artist's page works the same everywhere and is what a booker needs: tap, listen, decide.
 Tradeoff: the listener leaves the app. Embeds can be added later per site.
+
+## 22. Tests check what the visitor sees, not only HTTP codes
+A page that streams has already sent status 200 when it discovers an id does not exist, so "not found" pages come back as 200 with the right words on screen. Missing files in Supabase Storage answer HTTP 400 with "not found" inside. The tests assert on the visible result (and "not 200" for files) because that is what users actually experience.
+Tradeoff: a search engine would see a soft 404. This is a logged-in app, so that does not matter here.
