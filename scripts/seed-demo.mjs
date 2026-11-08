@@ -3,8 +3,8 @@
 //   NODE_USE_ENV_PROXY=1 npm run seed        (inside the Claude cloud container)
 //   npm run seed                             (anywhere else)
 //
-// SAFE TO RE-RUN. It refreshes the same fictional venues and replaces their gigs and posts, always
-// placing gigs in the NEXT THREE WEEKS from today. Run it again the day before the demo.
+// SAFE TO RE-RUN. It refreshes the same fictional venues and replaces their FUTURE open gigs and their posts,
+// always placing gigs in the NEXT THREE WEEKS from today. Run it again the day before the demo.
 // It never touches the two demo login accounts (Mara Quinn and Front Room Bar).
 //
 // EVERYTHING HERE IS INVENTED: venue names, addresses, pay and notes. If a name happens to match a
@@ -127,7 +127,8 @@ for (const v of VENUES) {
 
 const venueIds = [...ids.values()];
 console.log("Gigs and posts");
-const del1 = await admin.from("gig_slots").delete().in("venue_id", venueIds);
+// Only refresh FUTURE open gigs. Past gigs, bookings and reviews (from seed-musicians.mjs) stay put.
+const del1 = await admin.from("gig_slots").delete().in("venue_id", venueIds).eq("status", "open").gt("starts_at", new Date().toISOString());
 if (del1.error) throw del1.error;
 const del2 = await admin.from("posts").delete().in("author_id", venueIds);
 if (del2.error) throw del2.error;
