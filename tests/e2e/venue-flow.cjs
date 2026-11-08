@@ -9,8 +9,9 @@
 //  - demo accounts exist (npm run demo:users);
 //  - because the proxy key hides the user's identity from the database, the accept and
 //    "gig happened" success paths cannot run here. This script checks their error handling,
-//    then emulates the result with direct writes. Verify those two on a deployment that uses
+//    then emulates the result with direct writes (unless REAL_KEYS=1, see below). Verify those two on a deployment that uses
 //    real keys. The database logic itself is covered by `npm run test:db`.
+// REAL_KEYS=1 BASE=https://your-site.vercel.app runs the accept and "gig happened" success paths for real.
 // The script creates 2 test musicians and some slots on the demo venue and deletes them at the end.
 const { chromium } = require('playwright');
 const { execFileSync } = require('child_process');
@@ -21,6 +22,7 @@ const path = (p) => new URL(p.url()).pathname + new URL(p.url()).search;
 const sb = (method, url, body) => { const a = ['-s', '-m', '30', '-X', method, H + url, '-H', 'apikey: proxy-injected', '-H', 'Content-Type: application/json', '-H', 'Prefer: return=representation']; if (body) a.push('-d', JSON.stringify(body)); const out = execFileSync('curl', a).toString(); try { return JSON.parse(out); } catch { return out; } };
 const nyDate = (offset = 0) => { const d = new Date(Date.now() + offset * 86400000); return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(d); };
 const stamp = Date.now();
+const REAL = process.env.REAL_KEYS === '1'; // set when testing a deployment that uses real keys
 const created = { users: [] };
 
 async function overflowAndTaps(p, name) {
@@ -105,16 +107,27 @@ async function overflowAndTaps(p, name) {
     await p.waitForSelector('h2:has-text("E2E Alto Quartet")'); await p.screenshot({ path: S + '/v-compare.png', fullPage: true });
     await overflowAndTaps(p, 'compare');
 
-    // CONTAINER LIMITATION: the proxy injects the secret key, so the database cannot see who is
-    // calling and accept_application() correctly refuses. We verify the app shows the right message,
-    // then emulate the outcome with direct writes so the rest of the screens can be checked.
-    await p.locator('button:has-text("Accept")').first().click(); await p.waitForURL('**/v/requests?error=notyours', { timeout: 20000 });
-    await p.waitForSelector('main p[role=alert]', { timeout: 15000 });
-    ok('(container limit) refused accept shows a plain message', /only answer applications for your own|only accept applicants for your own/i.test(await p.textContent('main p[role=alert]')) || /own gigs/.test(await p.textContent('main p[role=alert]')), await p.textContent('main p[role=alert]'));
-    sb('PATCH', `/rest/v1/applications?slot_id=eq.${gigSlot}&musician_id=eq.${A}`, { status: 'accepted' });
-    sb('PATCH', `/rest/v1/applications?slot_id=eq.${gigSlot}&musician_id=eq.${B}`, { status: 'declined' });
-    sb('PATCH', `/rest/v1/gig_slots?id=eq.${gigSlot}`, { status: 'booked' });
-    sb('POST', '/rest/v1/bookings', { slot_id: gigSlot, musician_id: A, venue_id: venueId, agreed_pay_cents: 15000 });
+    if (REAL) {
+      // REAL KEYS (deployed site): the database knows who is calling, so accept_application() really runs.
+      await p.locator('button:has-text("Accept")').first().click(); await p.waitForURL('**/v/calendar/' + gigSlot + '?accepted=1', { timeout: 30000 });
+      await p.waitForSelector('main p[role=status]', { timeout: 15000 });
+      ok('REAL: accepting lands on the gig with a confirmation', /Booked\./.test(await p.textContent('main p[role=status]')), await p.textContent('main'));
+      const apps = sb('GET', `/rest/v1/applications?slot_id=eq.${gigSlot}&select=musician_id,status`);
+      ok('REAL: first applicant accepted, the other declined', apps.find(a => a.musician_id === A)?.status === 'accepted' && apps.find(a => a.musician_id === B)?.status === 'declined', JSON.stringify(apps));
+      const bk = sb('GET', `/rest/v1/bookings?slot_id=eq.${gigSlot}&select=musician_id,agreed_pay_cents`);
+      ok('REAL: slot booked and the booking holds the right act and pay', sb('GET', `/rest/v1/gig_slots?id=eq.${gigSlot}&select=status`)[0].status === 'booked' && bk.length === 1 && bk[0].musician_id === A && bk[0].agreed_pay_cents === 15000, JSON.stringify(bk));
+    } else {
+      // CONTAINER LIMITATION: the proxy injects the secret key, so the database cannot see who is
+      // calling and accept_application() correctly refuses. We verify the app shows the right message,
+      // then emulate the outcome with direct writes so the rest of the screens can be checked.
+      await p.locator('button:has-text("Accept")').first().click(); await p.waitForURL('**/v/requests?error=notyours', { timeout: 20000 });
+      await p.waitForSelector('main p[role=alert]', { timeout: 15000 });
+      ok('(container limit) refused accept shows a plain message', /own gigs/.test(await p.textContent('main p[role=alert]')), await p.textContent('main p[role=alert]'));
+      sb('PATCH', `/rest/v1/applications?slot_id=eq.${gigSlot}&musician_id=eq.${A}`, { status: 'accepted' });
+      sb('PATCH', `/rest/v1/applications?slot_id=eq.${gigSlot}&musician_id=eq.${B}`, { status: 'declined' });
+      sb('PATCH', `/rest/v1/gig_slots?id=eq.${gigSlot}`, { status: 'booked' });
+      sb('POST', '/rest/v1/bookings', { slot_id: gigSlot, musician_id: A, venue_id: venueId, agreed_pay_cents: 15000 });
+    }
     await p.goto(base + '/v/calendar/' + gigSlot); await p.waitForSelector('text=Booked act');
     ok('booked gig page shows the act and the Gig happened action', (await p.textContent('main')).includes('E2E Alto Quartet') && await p.locator('button:has-text("Gig happened")').count() === 1);
     await p.screenshot({ path: S + '/v-slot-booked.png', fullPage: true });
@@ -126,13 +139,18 @@ async function overflowAndTaps(p, name) {
 
     console.log('Gig happened');
     await p.goto(base + '/v/calendar/' + gigSlot); await p.waitForSelector('button:has-text("Gig happened")');
-    await p.click('button:has-text("Gig happened")'); await p.waitForURL('**/v/calendar/' + gigSlot + '?error=complete', { timeout: 20000 });
-    await p.waitForSelector('main p[role=alert]', { timeout: 15000 });
-    ok('(container limit) refused completion shows a plain message', /could not mark/.test(await p.textContent('main p[role=alert]')), await p.textContent('main p[role=alert]'));
-    sb('PATCH', `/rest/v1/bookings?slot_id=eq.${gigSlot}`, { completed_at: new Date().toISOString() });
-    sb('PATCH', `/rest/v1/gig_slots?id=eq.${gigSlot}`, { status: 'completed' });
-    await p.goto(base + '/v/calendar/' + gigSlot); await p.waitForSelector('text=played this night');
-    ok('completed gig page reads correctly', true);
+    if (REAL) {
+      await p.click('button:has-text("Gig happened")'); await p.waitForSelector('text=played this night', { timeout: 30000 });
+      ok('REAL: gig marked as happened (slot completed, booking stamped)', sb('GET', `/rest/v1/gig_slots?id=eq.${gigSlot}&select=status`)[0].status === 'completed' && sb('GET', `/rest/v1/bookings?slot_id=eq.${gigSlot}&select=completed_at`)[0].completed_at !== null);
+    } else {
+      await p.click('button:has-text("Gig happened")'); await p.waitForURL('**/v/calendar/' + gigSlot + '?error=complete', { timeout: 20000 });
+      await p.waitForSelector('main p[role=alert]', { timeout: 15000 });
+      ok('(container limit) refused completion shows a plain message', /could not mark/.test(await p.textContent('main p[role=alert]')), await p.textContent('main p[role=alert]'));
+      sb('PATCH', `/rest/v1/bookings?slot_id=eq.${gigSlot}`, { completed_at: new Date().toISOString() });
+      sb('PATCH', `/rest/v1/gig_slots?id=eq.${gigSlot}`, { status: 'completed' });
+      await p.goto(base + '/v/calendar/' + gigSlot); await p.waitForSelector('text=played this night');
+      ok('completed gig page reads correctly', true);
+    }
 
     console.log('Cancel an open slot');
     await p.goto(base + '/v/calendar/' + tonightSlot); await p.waitForSelector('text=Cancel this slot');

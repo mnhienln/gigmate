@@ -62,3 +62,7 @@ Tradeoff: one extra query per page to look up the musician's applications.
 ## 16. The database says no to late and wrong-state changes
 A tiny migration (0003) makes withdrawing possible only while an application is pending, and applying possible only to future open gigs. The app also checks, but the database is the last line of defense, since anyone can call the API directly.
 Tradeoff: another SQL file to apply. It is tested in the local security suite.
+
+## 17. Auth-dependent behavior is tested on the deployed site
+Inside the cloud container, a network proxy attaches the secret key to every database request, so the database cannot tell who is logged in. Rather than bend the app to suit that, the browser tests have a real-keys mode that runs against the Vercel deployment. There, "accept an applicant", "gig happened" and the "gig just closed" refusal all run through the real database rules.
+Tradeoff: those tests need the live site and touch the live (demo) data, so they clean up after themselves.

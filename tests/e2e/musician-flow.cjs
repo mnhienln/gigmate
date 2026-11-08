@@ -16,6 +16,7 @@ const ok = (n, c, x = '') => { (c ? pass++ : fail++); console.log((c ? '  ok   '
 const sb = (method, url, body) => { const a = ['-s', '-m', '30', '-X', method, H + url, '-H', 'apikey: proxy-injected', '-H', 'Content-Type: application/json', '-H', 'Prefer: return=representation']; if (body) a.push('-d', JSON.stringify(body)); const out = execFileSync('curl', a).toString(); try { return JSON.parse(out); } catch { return out; } };
 const iso = (minutesFromNow) => new Date(Date.now() + minutesFromNow * 60000).toISOString();
 const DAY = 1440;
+const REAL = process.env.REAL_KEYS === '1'; // set when testing a deployment that uses real keys
 
 async function overflowAndTaps(p, name) {
   const o = await p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -93,6 +94,18 @@ const card = (p, re) => p.locator('article', { hasText: re });
     await stale.waitForSelector('text=You already applied', { timeout: 20000 });
     ok('applying twice from a stale tab says "already applied"', sb('GET', `/rest/v1/applications?slot_id=eq.${S2}&select=id`).length === 1);
     await stale.close();
+    if (REAL) {
+      // REAL KEYS: the database rules run, so a gig that closes while you are looking at it must refuse the application.
+      const S6 = mk({ starts_at: iso(2 * DAY), pay_cents: 7700, genre: 'Blues' });
+      await p.goto(base + '/m/discover'); await card(p, /\$77/).waitFor();
+      sb('PATCH', `/rest/v1/gig_slots?id=eq.${S6}`, { status: 'cancelled' });
+      await card(p, /\$77/).locator('button:has-text("Apply")').click();
+      await p.waitForSelector('text=no longer open', { timeout: 20000 });
+      ok('REAL: applying to a gig that just closed is refused with a plain message', sb('GET', `/rest/v1/applications?slot_id=eq.${S6}&select=id`).length === 0);
+      mk({ starts_at: iso(-60), pay_cents: 6600, genre: 'Blues' }); // already started: must never be listed
+      await p.goto(base + '/m/discover'); await p.waitForSelector('article');
+      ok('REAL: a gig that already started never shows in Discover', await card(p, /\$66/).count() === 0);
+    }
     // Wait on each card's own "Applied" pill, not the banner (the banner text is the same each time).
     await card(p, /Rock act wanted/i).locator('button:has-text("Apply")').click(); await card(p, /Rock act wanted/i).locator('text=Applied').waitFor({ timeout: 20000 });
     await card(p, /\$80/).locator('button:has-text("Apply")').click(); await card(p, /\$80/).locator('text=Applied').waitFor({ timeout: 20000 });
