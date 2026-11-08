@@ -3,7 +3,7 @@ import { PHOTOS, publicUrl } from "@/lib/storage";
 import { formatUsd } from "@/lib/money";
 import type { Product } from "@/lib/types";
 
-/* Merch cards, two across. GigMate only SHOWS the items. The Buy button goes to the
+/* Merch cards, two across. GiGmate only SHOWS the items. The Buy button goes to the
    venue's own store, so we never touch the money. */
 export function ShopGrid({ products, emptyHint }: { products: Product[]; emptyHint: string }) {
   if (products.length === 0) {

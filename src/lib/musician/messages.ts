@@ -4,7 +4,7 @@
 export const APPLY_MESSAGES: Record<string, { error?: string; message?: string }> = {
   ok: { message: "Applied. The venue can see your profile and will answer here." },
   dupe: { message: "You already applied to that gig. Check Bookings for the answer." },
-  subscribe: { error: "Applying needs a GigMate plan. Browsing stays free, and your first week is free." },
+  subscribe: { error: "Applying needs a GiGmate plan. Browsing stays free, and your first week is free." },
   closed: { error: "That gig is no longer open. It may have been booked, cancelled or already started." },
   other: { error: "We could not send your application. Please try again." },
 };

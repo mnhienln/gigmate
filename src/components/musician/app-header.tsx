@@ -19,7 +19,7 @@ export function AppHeader({
           href="/m/feed"
           className="flex min-h-11 items-center font-logo text-[40px] font-black italic leading-none tracking-tight text-brick"
         >
-          GigMate
+          GiGmate
         </Link>
         <div className="flex items-center">
           <Link

@@ -1,6 +1,6 @@
 import { ComingSoon } from "@/components/ui/coming-soon";
 
-export const metadata = { title: "Find acts | GigMate" };
+export const metadata = { title: "Find acts | GiGmate" };
 
 export default function FindActsPage() {
   return (

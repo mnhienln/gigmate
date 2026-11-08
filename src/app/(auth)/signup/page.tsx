@@ -2,11 +2,11 @@ import Link from "next/link";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { SignupForm } from "@/components/auth/signup-form";
 
-export const metadata = { title: "Sign up | GigMate" };
+export const metadata = { title: "Sign up | GiGmate" };
 
 export default function SignupPage() {
   return (
-    <AuthShell title="Join GigMate" subtitle="Local musicians and venues, connected.">
+    <AuthShell title="Join GiGmate" subtitle="Local musicians and venues, connected.">
       <SignupForm />
       <p className="text-base">
         Already have an account?{" "}

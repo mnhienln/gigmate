@@ -11,7 +11,7 @@ import { VenueProfileBody } from "@/components/profile/venue-profile-body";
 import { FormMessage } from "@/components/ui/form-message";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 
-export const metadata = { title: "Venue profile | GigMate" };
+export const metadata = { title: "Venue profile | GiGmate" };
 
 /* Read-only by default, like Instagram: nothing here changes by accident.
    Editing (details, photo, posts, shop) lives behind the "Edit profile" button. */

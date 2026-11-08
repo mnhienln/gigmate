@@ -7,8 +7,8 @@ import type { MetadataRoute } from "next";
 */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "GigMate",
-    short_name: "GigMate",
+    name: "GiGmate",
+    short_name: "GiGmate",
     description: "Local musicians and venues, connected.",
     start_url: "/",
     display: "standalone",

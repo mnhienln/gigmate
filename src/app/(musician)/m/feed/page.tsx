@@ -11,7 +11,7 @@ import { PostCard } from "@/components/musician/post-card";
 import { SlotTicket } from "@/components/musician/slot-ticket";
 import { FormMessage } from "@/components/ui/form-message";
 
-export const metadata = { title: "Feed | GigMate" };
+export const metadata = { title: "Feed | GiGmate" };
 
 /*
   Everything here depends on who is signed in and on live data, so it renders at

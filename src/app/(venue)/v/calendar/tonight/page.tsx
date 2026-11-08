@@ -6,7 +6,7 @@ import { todayLocal } from "@/lib/dates";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { SlotForm } from "@/components/venue/slot-form";
 
-export const metadata = { title: "Need an act tonight | GigMate" };
+export const metadata = { title: "Need an act tonight | GiGmate" };
 
 async function Content() {
   await requireRole("venue");

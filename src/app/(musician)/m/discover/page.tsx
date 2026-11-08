@@ -11,7 +11,7 @@ import { SlotTicket } from "@/components/musician/slot-ticket";
 import { FormMessage } from "@/components/ui/form-message";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 
-export const metadata = { title: "Discover | GigMate" };
+export const metadata = { title: "Discover | GiGmate" };
 
 async function Content({ searchParams }: { searchParams: PageProps<"/m/discover">["searchParams"] }) {
   const profile = await requireRole("musician");

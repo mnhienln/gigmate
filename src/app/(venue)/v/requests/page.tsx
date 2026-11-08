@@ -9,7 +9,7 @@ import { FormMessage } from "@/components/ui/form-message";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { RequestCard } from "@/components/venue/request-card";
 
-export const metadata = { title: "Requests | GigMate" };
+export const metadata = { title: "Requests | GiGmate" };
 
 const ERRORS: Record<string, string> = {
   closed: "That gig was already booked, so we could not accept another act.",

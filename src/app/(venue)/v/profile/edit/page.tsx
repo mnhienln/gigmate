@@ -15,7 +15,7 @@ import { FormMessage } from "@/components/ui/form-message";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { VenueProfileForm } from "@/components/venue/profile-form";
 
-export const metadata = { title: "Edit venue profile | GigMate" };
+export const metadata = { title: "Edit venue profile | GiGmate" };
 
 async function Content({ searchParams }: { searchParams: PageProps<"/v/profile/edit">["searchParams"] }) {
   const profile = await requireRole("venue");
@@ -58,7 +58,7 @@ async function Content({ searchParams }: { searchParams: PageProps<"/v/profile/e
         <ManagePosts posts={view.posts} />
       </EditSection>
 
-      <EditSection title="Shop" hint="Merch like shirts, glasses or gift cards. The Buy button opens your own store, so GigMate never handles the money.">
+      <EditSection title="Shop" hint="Merch like shirts, glasses or gift cards. The Buy button opens your own store, so GiGmate never handles the money.">
         <ProductForm userId={profile.id} />
         <ManageShop products={view.products} />
       </EditSection>

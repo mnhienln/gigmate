@@ -6,7 +6,7 @@ import { isDateString, todayLocal } from "@/lib/dates";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { SlotForm } from "@/components/venue/slot-form";
 
-export const metadata = { title: "Post a gig | GigMate" };
+export const metadata = { title: "Post a gig | GiGmate" };
 
 async function Content({ searchParams }: { searchParams: PageProps<"/v/calendar/new">["searchParams"] }) {
   await requireRole("venue");

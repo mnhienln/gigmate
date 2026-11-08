@@ -16,7 +16,7 @@ export function AuthShell({
       <main className="mx-auto flex w-full max-w-[520px] flex-col gap-6 px-5 pb-12 pt-5">
         <header>
           <Link href="/" className="flex min-h-11 items-center font-logo text-[40px] font-black italic leading-none tracking-tight text-brick">
-            GigMate
+            GiGmate
           </Link>
           <div className="mt-3">
             <Stripes />

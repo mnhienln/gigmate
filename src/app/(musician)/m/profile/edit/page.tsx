@@ -13,7 +13,7 @@ import { ManagePosts } from "@/components/profile/manage-posts";
 import { FormMessage } from "@/components/ui/form-message";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 
-export const metadata = { title: "Edit profile | GigMate" };
+export const metadata = { title: "Edit profile | GiGmate" };
 
 async function Content({ searchParams }: { searchParams: PageProps<"/m/profile/edit">["searchParams"] }) {
   const profile = await requireRole("musician");

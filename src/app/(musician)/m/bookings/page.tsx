@@ -9,7 +9,7 @@ import { FormMessage } from "@/components/ui/form-message";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { SubmitButton } from "@/components/ui/submit-button";
 
-export const metadata = { title: "Bookings | GigMate" };
+export const metadata = { title: "Bookings | GiGmate" };
 
 type Tab = "confirmed" | "applied" | "completed";
 

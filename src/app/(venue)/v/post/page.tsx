@@ -5,7 +5,7 @@ import { requireRole } from "@/lib/auth";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { PostComposer } from "@/components/profile/post-composer";
 
-export const metadata = { title: "New post | GigMate" };
+export const metadata = { title: "New post | GiGmate" };
 
 async function Content() {
   const profile = await requireRole("venue");

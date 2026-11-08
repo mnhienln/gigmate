@@ -9,7 +9,7 @@ import { MediaError, newObjectPath, prepareImage, removeObjects, uploadObject } 
 import { PHOTOS } from "@/lib/storage";
 
 /* Add a shop item: name, price, optional photo, description and buy link.
-   GigMate shows the item; the Buy button goes to the venue's own store. */
+   GiGmate shows the item; the Buy button goes to the venue's own store. */
 export function ProductForm({ userId }: { userId: string }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);

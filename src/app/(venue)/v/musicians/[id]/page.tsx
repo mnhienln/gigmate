@@ -10,7 +10,7 @@ import { ProfileHeader } from "@/components/profile/profile-header";
 import { ProfileTabs, musicianTabs, parseMusicianTab } from "@/components/profile/profile-tabs";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 
-export const metadata = { title: "Musician | GigMate" };
+export const metadata = { title: "Musician | GiGmate" };
 
 /* A venue's read-only view of a musician: the same photos, videos and music the musician sees,
    with no edit controls. This is what helps a venue pick between two applicants. */

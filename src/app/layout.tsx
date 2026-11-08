@@ -9,10 +9,10 @@ import "@fontsource/playfair-display/900-italic.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "GigMate",
+  title: "GiGmate",
   description:
     "Local musicians and venues, connected. Find your next gig or fill an empty night.",
-  applicationName: "GigMate",
+  applicationName: "GiGmate",
 };
 
 export const viewport: Viewport = {

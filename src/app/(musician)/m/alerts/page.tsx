@@ -1,6 +1,6 @@
 import { ComingSoon } from "@/components/ui/coming-soon";
 
-export const metadata = { title: "Alerts | GigMate" };
+export const metadata = { title: "Alerts | GiGmate" };
 
 export default function AlertsPage() {
   return (

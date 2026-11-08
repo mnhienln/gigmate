@@ -3,7 +3,7 @@ import { AuthShell } from "@/components/auth/auth-shell";
 import { DemoButtons } from "@/components/auth/demo-buttons";
 import { LoginForm } from "@/components/auth/login-form";
 
-export const metadata = { title: "Log in | GigMate" };
+export const metadata = { title: "Log in | GiGmate" };
 
 export default function LoginPage() {
   return (

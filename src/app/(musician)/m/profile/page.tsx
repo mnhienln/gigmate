@@ -14,7 +14,7 @@ import { ProfileTabs, musicianTabs, parseMusicianTab } from "@/components/profil
 import { FormMessage } from "@/components/ui/form-message";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 
-export const metadata = { title: "Profile | GigMate" };
+export const metadata = { title: "Profile | GiGmate" };
 
 /* Read-only by default, like Instagram: nothing here can be changed by accident.
    Editing lives behind the "Edit profile" button. */

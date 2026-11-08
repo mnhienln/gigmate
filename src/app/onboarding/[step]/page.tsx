@@ -7,7 +7,7 @@ import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { getCurrentProfile, homeFor } from "@/lib/auth";
 import { GENRES, NEIGHBORHOODS, VENUE_TYPES } from "@/lib/options";
 
-export const metadata = { title: "Set up your profile | GigMate" };
+export const metadata = { title: "Set up your profile | GiGmate" };
 
 const TITLES = {
   musician: ["Your sound", "Your rate", "Show your work"],

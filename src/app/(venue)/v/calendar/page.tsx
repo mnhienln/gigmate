@@ -8,7 +8,7 @@ import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { SlotCard } from "@/components/venue/slot-card";
 import { WeekStrip } from "@/components/venue/week-strip";
 
-export const metadata = { title: "Calendar | GigMate" };
+export const metadata = { title: "Calendar | GiGmate" };
 
 async function CalendarContent({ searchParams }: { searchParams: PageProps<"/v/calendar">["searchParams"] }) {
   const profile = await requireRole("venue");

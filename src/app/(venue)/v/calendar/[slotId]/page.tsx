@@ -14,7 +14,7 @@ import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { StatusBadge } from "@/components/venue/slot-card";
 
-export const metadata = { title: "Gig | GigMate" };
+export const metadata = { title: "Gig | GiGmate" };
 
 async function Content({ params, searchParams }: { params: PageProps<"/v/calendar/[slotId]">["params"]; searchParams: PageProps<"/v/calendar/[slotId]">["searchParams"] }) {
   const profile = await requireRole("venue");

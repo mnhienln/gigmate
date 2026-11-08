@@ -1,6 +1,6 @@
 import { ComingSoon } from "@/components/ui/coming-soon";
 
-export const metadata = { title: "Messages | GigMate" };
+export const metadata = { title: "Messages | GiGmate" };
 
 export default function MessagesPage() {
   return (

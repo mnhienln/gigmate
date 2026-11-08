@@ -1,5 +1,5 @@
 /*
-  Time handling for GigMate.
+  Time handling for GiGmate.
 
   Rule: the database stores instants in UTC (timestamptz). People think in
   Dayton time. So we convert at the edges:

@@ -12,7 +12,7 @@ import { FormMessage } from "@/components/ui/form-message";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { SubmitButton } from "@/components/ui/submit-button";
 
-export const metadata = { title: "Your plan | GigMate" };
+export const metadata = { title: "Your plan | GiGmate" };
 
 const ERRORS: Record<string, string> = {
   plan: "Pick one of the plans below.",

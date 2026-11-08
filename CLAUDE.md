@@ -1,4 +1,4 @@
-# GigMate
+# GiGmate (the brand is written GiGmate)
 
 Mobile-first web app (installable PWA) connecting local musicians with bars, breweries and small venues. Launch city: Dayton, Ohio. Built by a student team at Startup Weekend as a working demo.
 

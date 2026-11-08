@@ -6,7 +6,7 @@ export default function Home() {
     <div data-theme="poster" className="min-h-dvh bg-bg text-ink">
       <main className="mx-auto flex min-h-dvh w-full max-w-[520px] flex-col justify-center gap-6 px-5 py-10">
         <div>
-          <h1 className="font-logo text-[64px] font-black italic leading-none tracking-tight text-brick">GigMate</h1>
+          <h1 className="font-logo text-[64px] font-black italic leading-none tracking-tight text-brick">GiGmate</h1>
           <div className="mt-4">
             <Stripes />
           </div>

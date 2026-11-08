@@ -9,7 +9,7 @@ import { getRequestsByIds } from "@/lib/venue/data";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { AcceptDeclineButtons, ClipLink, Rating } from "@/components/venue/request-card";
 
-export const metadata = { title: "Compare | GigMate" };
+export const metadata = { title: "Compare | GiGmate" };
 
 async function Content({ searchParams }: { searchParams: PageProps<"/v/requests/compare">["searchParams"] }) {
   const profile = await requireRole("venue");

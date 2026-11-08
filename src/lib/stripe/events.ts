@@ -36,7 +36,7 @@ async function saveSubscription(admin: Admin, sub: Stripe.Subscription, fallback
     const { data } = await admin.from("subscriptions").select("musician_id").eq("stripe_subscription_id", sub.id).maybeSingle();
     musicianId = data?.musician_id;
   }
-  if (!musicianId) return "subscription ignored: no GigMate user attached";
+  if (!musicianId) return "subscription ignored: no GiGmate user attached";
 
   const { error } = await admin.from("subscriptions").upsert(
     {
